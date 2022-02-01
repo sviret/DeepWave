@@ -207,19 +207,21 @@ void bankgen::initTuple()
 
     bankparams  = new TTree("Bank","");
       
-    bankparams->Branch("T",&T);
-    bankparams->Branch("H",&H);
-    bankparams->Branch("mass1",&mass1);
-    bankparams->Branch("mass2",&mass2);
-    bankparams->Branch("t_i",&t_i);
-    bankparams->Branch("t_f",&t_f);
-    bankparams->Branch("Tf",&Tf);
-    bankparams->Branch("Hfr",&Hfr);
-    bankparams->Branch("Hfi",&Hfi);
-    bankparams->Branch("t_init",&t_init);
-    bankparams->Branch("t_bin",&t_bin);
-    bankparams->Branch("f_init",&f_init);
-    bankparams->Branch("f_bin",&f_bin);
+    bankparams->Branch("T",&T);            // Sampling time of the template
+    bankparams->Branch("H",&H);            // Corresponding h value
+    bankparams->Branch("mass1",&mass1);    // Ma (in solar masses)
+    bankparams->Branch("mass2",&mass2);    // Mb (in solar masses)
+    bankparams->Branch("t_i",&t_i);        // Time at which the template enters the frequency
+                                           // range of the interferometer (f_low)
+    bankparams->Branch("t_f",&t_f);        // Time at which the template exits the frequency
+                                           // range of the interferometer (f_high)
+    bankparams->Branch("Tf",&Tf);          // Sampling frequency for the template
+    bankparams->Branch("Hfr",&Hfr);        // Fourier transform real part
+    bankparams->Branch("Hfi",&Hfi);        // Fourier transform imaginary part
+    bankparams->Branch("t_init",&t_init);  // Starting time
+    bankparams->Branch("t_bin",&t_bin);    // Time bin
+    bankparams->Branch("f_init",&f_init);  // Starting frequency
+    bankparams->Branch("f_bin",&f_bin);    // Frequency bin
 }
 
 
