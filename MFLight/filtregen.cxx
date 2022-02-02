@@ -180,9 +180,10 @@ void filtregen::do_MF()
       // Power spectral density of the noise at frequency f
       psd=(mNfr[i]*mNfr[i] + mNfi[i]*mNfi[i])/(60/t_bin);
 
-      // Matched filter value for bin i = signal*chirp/RMS(=sigma)
-      Htfr->at(i)=norm*( (mHsfr[i]*mHfr[i_bk] + mHsfi[i]*mHfi[i_bk])/psd ); // ac + bd
-      Htfi->at(i)=norm*( (mHsfi[i]*mHfr[i_bk] - mHsfr[i]*mHfi[i_bk])/psd ); // bc - ad
+      // Matched filter value for bin i
+      // Complete this part
+      Htfr->at(i)=0.;
+      Htfi->at(i)=0.;
        
       re_full[i] = Htfr->at(i);  // pointeurs pour la FFT inverse
       im_full[i] = Htfi->at(i);
