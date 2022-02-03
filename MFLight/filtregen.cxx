@@ -152,6 +152,35 @@ void filtregen::do_MF()
     Tfin->clear();
       
     // We run over all the signal FFT bins
+    // to compute the normalization factor of the template
+    double sigval=0.;
+         
+    for (int i=0;i<mHsfr.size();i++)
+    {
+        // We do that only within the detector sensitivity
+        // (== infinite noise ponderation elsewhere)
+        //
+        if (f_init+i*f_bin<40) continue;
+        if (f_init+i*f_bin>1000) continue;
+       
+        // The template fourier transform is not
+        // computed on the same number of point.
+        // One has to find the right index
+        // and normalize correctly the bin size
+             
+        i_bk=static_cast<int>(i*f_bin/f_binbank);
+        norm=f_bin/f_binbank;
+           
+        // Power spectral density of the noise at frequency f
+        psd=(mNfr[i]*mNfr[i] + mNfi[i]*mNfi[i])/(60/t_bin);
+    
+        // Scaling factor to get the correct S/N
+        sigval+=norm*norm*(mHfr[i_bk]*mHfr[i_bk] + mHfi[i_bk]*mHfi[i_bk])/(psd);
+    }
+         
+    sigval=sqrt(2*sigval); // Final norm factor
+      
+    // We run over all the signal FFT bins
     // to compute the MF FFT corresponding coordinates
     // using the template FFT info
       
@@ -195,11 +224,14 @@ void filtregen::do_MF()
     fft_back->SetPointsComplex(re_full,im_full);  // FFT inverse
     fft_back->Transform();
     int npts = fft_back->GetN()[0];
-  
+      
+    // Normalisation factor, we have n sampling points but sigval is a sqrt, so n/sqrt(n)
+    double norm_filtered=sqrt(float(n))*sigval;
+      
     // Filterd signal along time
     for (int binx = 1; binx<=npts; binx++)
     {
-        Hfin->push_back( float(fft_back->GetPointReal(binx - 1))/float(n) );
+        Hfin->push_back( float(fft_back->GetPointReal(binx - 1))/norm_filtered );
         Tfin->push_back( t_init+binx*t_bin );
     }
       
