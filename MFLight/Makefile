@@ -1,8 +1,8 @@
 CXX = g++
 LD  = g++
-CFLAGS = -Wall -g -std=c++17
+CFLAGS = -Wall -g -std=c++14
 
-INCS = $(ROOTSYS)/include/ $(PWD)/tclap-1.2.1/include/ .
+INCS = /opt/root-6.14.06/include/ $(PWD)/tclap-1.2.1/include/ .
 
 %.o: %.cxx 
 	@echo "*"
@@ -12,7 +12,7 @@ INCS = $(ROOTSYS)/include/ $(PWD)/tclap-1.2.1/include/ .
 
 og_ana:main.o chirp.o chirpgen.o bankgen.o filtregen.o jobparams.o
 	@echo "Build gravitational wave analysis tool"
-	$(LD) $^ $(shell $(ROOTSYS)/bin/root-config --libs) -o $@
+	$(LD) $^ $(shell /opt/root-6.14.06/bin/root-config --libs) -o $@
 
 all : og_ana
 
