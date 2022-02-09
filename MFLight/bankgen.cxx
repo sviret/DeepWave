@@ -113,6 +113,9 @@ void bankgen::create_bank()
             // Here we resize the Fourier transform as we perform it
             // only on the useful part of the signal
             
+            int npts= std::min(n_size,static_cast<int>((t_f-t_i)/t_bin)+1);
+            fft_own = TVirtualFFT::FFT(1, &npts, "MAG R2C ES K");
+            
             cout <<endl;
             cout << "Feeding the bank with the following template" <<endl;
             cout << "m1 = " << m1 << " solar masses" <<endl;
@@ -123,8 +126,6 @@ void bankgen::create_bank()
 
             t_i = std::max(t_i,-30.); // Fit into the chunk size, if needed
 
-            int npts= static_cast<int>((t_f-t_i)/t_bin)+1;
-            fft_own = TVirtualFFT::FFT(1, &npts, "MAG R2C ES K");
             
             for(int k=0;k<npts;++k) in[k]=0;
             
