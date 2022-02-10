@@ -20,7 +20,6 @@
 
 #include "filtregen.h"
 
-
 // Main constructor
 filtregen::filtregen(std::string bank, std::string signal, std::string outfile):
 Htfr(new std::vector<double>),
@@ -28,7 +27,6 @@ Htfi(new std::vector<double>),
 Tfin(new std::vector<double>),
 Hfin(new std::vector<double>)
 {
-    
   filtregen::reset();
     
   m_outs=signal;
@@ -131,11 +129,7 @@ void filtregen::do_MF()
 
   int  n=Hsfr->size();
     
-  //double_t *re_full = new double_t [n];
-  //double_t *im_full = new double_t [n];
-
-  //TVirtualFFT *fft_back = TVirtualFFT::FFT(1, &n, "C2R M K");
-
+  // Allocate sufficient space in the TF plan elements
   input = (fftw_complex*) fftw_malloc(n*2 * sizeof(fftw_complex));
   output = (fftw_complex*) fftw_malloc(n*2 * sizeof(fftw_complex));
     
@@ -225,6 +219,10 @@ void filtregen::do_MF()
     fftw_destroy_plan(p);
       
     // Normalisation factor, we have n sampling points but sigval is a sqrt, so n/sqrt(n)
+    // The factor 2 wandering around comes from the fact that size of the backward FFT is
+    // half of the initial one (only account for positive frequencies)
+    // Bin size at the output is therefore 2*t_bin
+      
     double norm_filtered=sqrt(float(n/2))*sigval;
       
     // Filtered signal along time
