@@ -129,7 +129,7 @@ void filtregen::do_MF()
   // Get the signal
   Signalinfo->GetEntry(0);
 
-  int  n=Hs->size();
+  int  n=Hsfr->size();
     
   //double_t *re_full = new double_t [n];
   //double_t *im_full = new double_t [n];
@@ -225,13 +225,13 @@ void filtregen::do_MF()
     fftw_destroy_plan(p);
       
     // Normalisation factor, we have n sampling points but sigval is a sqrt, so n/sqrt(n)
-    double norm_filtered=sqrt(float(n))*sigval/2;
+    double norm_filtered=sqrt(float(n/2))*sigval;
       
     // Filtered signal along time
     for (int binx = 1; binx<=n; binx++)
     {
         Hfin->push_back( output[binx-1][0]/norm_filtered);
-        Tfin->push_back( t_init+binx*t_bin );
+        Tfin->push_back( t_init+2*binx*t_bin );
     }
       
     Filtreparams->Fill();
@@ -246,7 +246,7 @@ void filtregen::do_MF()
         if (abs(Hfin->at(k)) > maxH)
         {
             maxH = abs(Hfin->at(k));
-            maxT = t_init+k*t_bin;
+            maxT = Tfin->at(k);
         }
     }
    
