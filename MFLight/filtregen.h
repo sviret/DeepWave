@@ -19,6 +19,7 @@
 #include "TBranch.h"
 
 #include <fstream>
+#include <fftw3.h>
 
 using namespace std;
 
@@ -51,6 +52,9 @@ class filtregen
   TTree *Filtreparams;      // The trees
   TFile *m_outfile;       // The output file
     
+  fftw_complex *input;
+  fftw_complex *output;
+  fftw_plan p;
 };
 
 #endif

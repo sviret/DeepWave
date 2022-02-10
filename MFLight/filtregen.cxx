@@ -131,16 +131,20 @@ void filtregen::do_MF()
 
   int  n=Hs->size();
     
-  double_t *re_full = new double_t [n];
-  double_t *im_full = new double_t [n];
+  //double_t *re_full = new double_t [n];
+  //double_t *im_full = new double_t [n];
 
-  TVirtualFFT *fft_back = TVirtualFFT::FFT(1, &n, "C2R M K");
+  //TVirtualFFT *fft_back = TVirtualFFT::FFT(1, &n, "C2R M K");
 
+  input = (fftw_complex*) fftw_malloc(n*2 * sizeof(fftw_complex));
+  output = (fftw_complex*) fftw_malloc(n*2 * sizeof(fftw_complex));
+    
   // Run the matched filtering over all the bank parameters
   int n_entries = Bank->GetEntries();
     
   for (int j=0;j<n_entries;++j)
   {
+    if (j%10==0) cout << "Processing template " << j << "/" << n_entries << endl;
     Bank->GetEntry(j);
    
     c_mass2=b_mass2;
@@ -182,9 +186,9 @@ void filtregen::do_MF()
       
     for (int i=0;i<mHsfr.size();i++)
     {
-      re_full[i] = 0.;
-      im_full[i] = 0.;
- 
+      input[i][0]= 0.;
+      input[i][1]= 0.;
+        
       Htfr->push_back( 0.);
       Htfi->push_back( 0.);
       
@@ -209,24 +213,24 @@ void filtregen::do_MF()
       Htfr->at(i)=norm*( (mHsfr[i]*mHfr[i_bk] + mHsfi[i]*mHfi[i_bk])/psd ); // ac + bd
       Htfi->at(i)=norm*( (mHsfi[i]*mHfr[i_bk] - mHsfr[i]*mHfi[i_bk])/psd ); // bc - ad
        
-      re_full[i] = Htfr->at(i);  // pointeurs pour la FFT inverse
-      im_full[i] = Htfi->at(i);
+      input[i][0]= Htfr->at(i);
+      input[i][1]= Htfi->at(i);
     }
           
     // Now compute the inverse FFT
     // It should peak at T=Tchirp for the good template
       
-    fft_back->SetPointsComplex(re_full,im_full);  // FFT inverse
-    fft_back->Transform();
-    int npts = fft_back->GetN()[0];
-  
+    p = fftw_plan_dft_1d(n, input, output, FFTW_BACKWARD, FFTW_ESTIMATE);
+    fftw_execute(p);
+    fftw_destroy_plan(p);
+      
     // Normalisation factor, we have n sampling points but sigval is a sqrt, so n/sqrt(n)
-    double norm_filtered=sqrt(float(n))*sigval;
+    double norm_filtered=sqrt(float(n))*sigval/2;
       
     // Filtered signal along time
-    for (int binx = 1; binx<=npts; binx++)
+    for (int binx = 1; binx<=n; binx++)
     {
-        Hfin->push_back( float(fft_back->GetPointReal(binx - 1))/norm_filtered);
+        Hfin->push_back( output[binx-1][0]/norm_filtered);
         Tfin->push_back( t_init+binx*t_bin );
     }
       
@@ -266,9 +270,9 @@ void filtregen::do_MF()
  cout << "    Coalescence time found is  = " << maxTtot << " s " << endl;
  cout << "    *Real Tc time is           = " << tchirp << " s" << endl;
  cout << "    Peak magnitude is  " << maxHtot << endl;
-   
- fft_back=0;
- delete fft_back;
+
+ input=0;
+ output=0;
 }
 
 void filtregen::reset()

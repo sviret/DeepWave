@@ -22,6 +22,7 @@
 ///////////////////////////////////
 
 #include "bankgen.h"
+#include <fftw3.h>
 
 // Main constructor
 // Bank initialization
@@ -84,7 +85,15 @@ void bankgen::create_bank()
     double *in = new double[2*((n+1)/2+1)];
     
     Int_t n_size = n+1;
-    TVirtualFFT *fft_own = TVirtualFFT::FFT(1, &n_size, "MAG R2C ES K");
+    
+    // The FFT is handled via the FFTW algorithm
+    //
+    // https://www.fftw.org
+    //
+ 
+    fftw_complex *input;
+    fftw_complex *output;
+    fftw_plan p;
     
     chirp *mychirp=new chirp();
     
@@ -94,14 +103,17 @@ void bankgen::create_bank()
     {
         for(double m2=m1 ; m2<=m_mass2 ; m2++)  // Pair are just done once (m1,m2) and not (m2,m1)
         {
+            cout << "PT0a" <<endl;
             mychirp->init(m1,m2,m_theta*4*atan(1.)/180.,m_dist);
-    
+            cout << "PT0b" <<endl;
             T->clear();
             H->clear();
             Tf->clear();
             Hfr->clear();
             Hfi->clear();
     
+            cout << "PT0c" <<endl;
+            
             // Define the time range when the signal frequency will
             // be within the detector sensitivity
             // Divide by 2 because binary orbital rotation frequency is
@@ -113,10 +125,13 @@ void bankgen::create_bank()
             // Here we resize the Fourier transform as we perform it
             // only on the useful part of the signal
             
-            int npts= static_cast<int>((t_f-t_i)/t_bin)+1;
-            fft_own = TVirtualFFT::FFT(1, &npts, "MAG R2C ES K");
-            
+            int npts= std::min(n_size,static_cast<int>((t_f-t_i)/t_bin)+1);
+
+            input = (fftw_complex*) fftw_malloc(npts*2 * sizeof(fftw_complex));
+            output = (fftw_complex*) fftw_malloc(npts*2 * sizeof(fftw_complex));
+
             for(int k=0;k<npts;++k) in[k]=0;
+            
             
             cout <<endl;
             cout << "Feeding the bank with the following template" <<endl;
@@ -138,33 +153,34 @@ void bankgen::create_bank()
                 in[i]=0;
                 if (t>=t_i && t<=t_f) in[i] = mychirp->get_h(t);
 
+                input[i][0]=in[i];
+                input[i][1]=0.;
+                
                 T->push_back(t);
                 H->push_back(in[i]);
             }
                 
             // Signal is created, we FFT it
-            if (!fft_own) return;
-            fft_own->SetPoints(in);
-            fft_own->Transform();
-        
+            p = fftw_plan_dft_1d(npts, input, output, FFTW_FORWARD, FFTW_ESTIMATE);
+            fftw_execute(p);
+            fftw_destroy_plan(p);
+            
             // Important to store the frequency bin width as it
             // will depend on the template here.
             
             f_bin=1./T->size()*f_s*1000;
-            
-            //Copy all the output points:
-            fft_own->GetPoints(in);
-    
+     
             for (Int_t j=0; j<=H->size()/2-1; j++)
             {
-                re = in[2*j];
-                im = in[2*j+1];
+                re = output[j][0];
+                im = output[j][1];
 
                 Tf->push_back(float(j)*f_bin);
                 Hfr->push_back(re);
                 Hfi->push_back(im);
             }
-            
+            input=0;
+            output=0;
             bankparams -> Fill();
         }
     }

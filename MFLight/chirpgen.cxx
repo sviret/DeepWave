@@ -21,6 +21,7 @@
 ///////////////////////////////////
 
 #include "chirpgen.h"
+#include <fftw3.h>
 
 // Main constructor
 
@@ -73,7 +74,7 @@ Nfi(new std::vector<double>)
 void chirpgen::create_function()
 {
     // First one defines some initial parameters
-    
+
     double fi = 40;        // Interferometer low sensitivity (in Hz)
     double ff = 2000;      // Interferometer high sensitivity (in Hz)
     double duration = 60;  // Signal duration, in seconds
@@ -90,7 +91,6 @@ void chirpgen::create_function()
     double *in = new double[2*((n+1)/2+1)];
     double *noise = new double[2*((n+1)/2+1)];
     int n_size = n+1;
-    
     Signal->clear();
     T->clear();
     H->clear();
@@ -106,14 +106,14 @@ void chirpgen::create_function()
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::default_random_engine generator (seed);
     
-    // The FFT is handled via a dedicated ROOT tool
-    // based on the example available here:
-    // https://root.cern.ch/doc/v608/FFT_8C.html
+    // The FFT is handled via the FFTW algorithm
     //
-    // !!SV note: this is pretty inefficient, in the future this code should be directly
-    // based on FFTW class (which is used by TVirtualFFT anyway.
-    
-    TVirtualFFT *fft_own = TVirtualFFT::FFT(1, &n_size, "MAG R2C ES K");
+    // https://www.fftw.org
+    //
+ 
+    fftw_complex input[n_size];
+    fftw_complex output[n_size];
+    fftw_plan p;
     
     // Everything is setup we can now generate the signal
     
@@ -159,10 +159,15 @@ void chirpgen::create_function()
     for(double t=t_init ; t<t_init+duration ; t=t+t_bin)
     {
         i++ ;
+        
         in[i]=distribution(generator); // Noise
+
         noise[i]=in[i];
         N->push_back(noise[i]);
         if (t>ti+tchirp && t<tf+tchirp) in[i] += mychirp->get_h(t-tchirp); // Add signal in the relevant range
+
+        input[i][0]=in[i];
+        input[i][1]=0.;
         
         T->push_back(t);
         H->push_back(in[i]); // The total signal
@@ -174,27 +179,22 @@ void chirpgen::create_function()
         {
             Signal->push_back(0);
         }
-        
     }
-    
-    if (!fft_own) return;
     
     // Now perform a Fourier transform of the signal
     
-    fft_own->SetPoints(in);
-    fft_own->Transform();
-        
-    //Copy all the output points:
-    fft_own->GetPoints(in);
+    p = fftw_plan_dft_1d(n_size, input, output, FFTW_FORWARD, FFTW_ESTIMATE);
+    fftw_execute(p);
+    //fftw_destroy_plan(p);
 
     // Retrieve all the FFT output info for the
     // rootuple
     
     for (Int_t j=0; j<=T->size()/2-1; j++)
     {
-        re = in[2*j];
-        im = in[2*j+1];
-            
+        re = output[j][0];
+        im = output[j][1];
+        
         Tf->push_back(float(j)/T->size()*f_s*1000);
         Hfr->push_back(re);
         Hfi->push_back(im);
@@ -206,18 +206,20 @@ void chirpgen::create_function()
     // in a future version the noise PSD should be evaluated
     // using an appropriate method
     
-    fft_own = TVirtualFFT::FFT(1, &n_size, "MAG R2C ES K");
-
-    fft_own->SetPoints(noise);
-    fft_own->Transform();
-        
-    //Copy all the output points:
-    fft_own->GetPoints(noise);
+    for (i = 0; i < n_size; i++)
+    {
+      input[i][0] = noise[i];
+      input[i][1] = 0.;
+    }
+    
+    //p = fftw_plan_dft_1d(n_size, input, output, FFTW_FORWARD, FFTW_ESTIMATE);
+    fftw_execute(p);
+    fftw_destroy_plan(p);
 
     for (Int_t j=0; j<=T->size()/2-1; j++)
     {
-        re = noise[2*j];
-        im = noise[2*j+1];
+        re = output[j][0];
+        im = output[j][1];
 
         /*  // !!! CODE NEEDS TO BE IMPROVED HERE !!!
         // To do this properly you need to compute the noise PSD averaging
@@ -234,6 +236,7 @@ void chirpgen::create_function()
     }
     // Fill the ROOT tree
     Chirparams -> Fill();
+    fftw_cleanup();
 }
 
 void chirpgen::reset()

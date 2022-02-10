@@ -12,7 +12,7 @@ INCS = $(ROOTSYS)/include/ $(PWD)/tclap-1.2.1/include/ .
 
 og_ana:main.o chirp.o chirpgen.o bankgen.o filtregen.o jobparams.o
 	@echo "Build gravitational wave analysis tool"
-	$(LD) $^ $(shell $(ROOTSYS)/bin/root-config --libs) -o $@
+	$(LD) $^ $(shell $(ROOTSYS)/bin/root-config --libs) -lfftw3 -o $@
 
 all : og_ana
 
