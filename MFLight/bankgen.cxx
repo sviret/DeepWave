@@ -103,16 +103,12 @@ void bankgen::create_bank()
     {
         for(double m2=m1 ; m2<=m_mass2 ; m2++)  // Pair are just done once (m1,m2) and not (m2,m1)
         {
-            cout << "PT0a" <<endl;
             mychirp->init(m1,m2,m_theta*4*atan(1.)/180.,m_dist);
-            cout << "PT0b" <<endl;
             T->clear();
             H->clear();
             Tf->clear();
             Hfr->clear();
             Hfi->clear();
-    
-            cout << "PT0c" <<endl;
             
             // Define the time range when the signal frequency will
             // be within the detector sensitivity
