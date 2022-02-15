@@ -69,7 +69,7 @@ void plot_Coverage(std::string filename)
       // Compute t_util and the chirp mass
       
       t_u=t_f-t_i;
-      m_c=(m_a+m_b)*pow(m_a*m_b/pow(m_a+m_b,2.),5./3.);
+      m_c=(m_a+m_b)*pow(m_a*m_b/pow(m_a+m_b,2.),3./5.);
 
       if (t_u>t_u_max) t_u_max=t_u;
       if (m_c>m_c_max) m_c_max=m_c;
