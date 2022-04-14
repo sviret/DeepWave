@@ -150,7 +150,7 @@ double chirp::get_h(double t)
 
 double chirp::get_time(double freq)
 {
-    return m_tc-5/2*pow(0.25,8./3.)*pow(m_tsc,-5./3.)*pow(8*atan(1.)*freq,-8./3.);
+    return m_tc-5./2.*pow(0.25,8./3.)*pow(m_tsc,-5./3.)*pow(8*atan(1.)*freq,-8./3.);
 }
 
 
