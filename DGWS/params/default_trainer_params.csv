@@ -1,0 +1,5 @@
+batch_size,250
+lr,0.003
+kindTraining,DecrInt
+tabEpochs,4,8,20,40,300
+tabSNR,48,24,36,16,24,12,16,8,10,6
