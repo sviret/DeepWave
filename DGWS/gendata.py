@@ -119,7 +119,7 @@ class GenNoise:
     def _genPSD(self):
         self.__PSD=npy.ones(self.__N)
         if self.__kindPSD=='flat':
-            sigma=1e-21
+            sigma=2e-23
             self.__PSD[:]=sigma**2
         elif self.__kindPSD=='analytic':
             self.__PSD[:]=self.Sh(abs(self.__F[:]))
@@ -518,7 +518,7 @@ class GenTemplate:
     def plot(self,Tsample=1,SNR=1):
         N=int(Tsample*self.__fe)
         T=npy.arange(N)*self.__delta_t
-        print(N)
+        #print(N)
         plt.plot(T, self.getSameSample(Tsample=Tsample)*SNR,'-',label='h(t)')
         plt.title('Template dans le domaine temporel de masses ('+str(self.__m1/Msol)+','+str(self.__m2/Msol)+')Msolaire')
         plt.xlabel('t (s)')
@@ -729,7 +729,7 @@ def main():
         TGenerator.plotTF()
             
         plt.figure()
-        TGenerator.plot(Tsample=args.time)
+        TGenerator.plot(Tsample=args.time,SNR=10)
             
         plt.legend()
         plt.show()
@@ -750,7 +750,7 @@ def main():
         
         plt.figure()
         NGenerator.plot()
-        TGenerator.plot(Tsample=args.time,SNR=7.5)
+        TGenerator.plot(Tsample=args.time,SNR=10.)
             
         #plt.legend()
         plt.show()
