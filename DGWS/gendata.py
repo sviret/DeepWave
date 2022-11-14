@@ -175,7 +175,7 @@ class GenNoise:
     def _genNfFromPSD(self):
         
         # The power at a given frequency is taken around the corresponding PSD value
-        self.__Nfr[0:self.__N//2+1]=npy.random.normal(npy.sqrt(self.__PSD[0:self.__N//2+1]),npy.sqrt(self.__PSD[0:self.__N//2+1])/npy.sqrt(self.__nsamp))
+        self.__Nfr[0:self.__N//2+1]=npy.sqrt(2)*npy.random.normal(npy.sqrt(self.__PSD[0:self.__N//2+1]/2),npy.sqrt(self.__PSD[0:self.__N//2+1])/npy.sqrt(2*self.__nsamp))
         self.__Nfi[0:self.__N//2+1]=self.__Nfr[0:self.__N//2+1]
 
         # The initial phase is randomized
@@ -230,7 +230,8 @@ class GenNoise:
     def plotPSD1D(self,fmin=None,fmax=None):
         ifmax=self.__N//2 if fmax is None else min(int(fmax/self.__delta_f),self.__N//2)
         ifmin=0 if fmin is None else max(int(fmin/self.__delta_f),0)
-        plt.hist(npy.abs(self.__Nf[ifmin:ifmax]),bins=100, range=[0, 4e-21])
+        #plt.hist(npy.abs(self.__Nf[ifmin:ifmax]),bins=100, range=[-8e-23, 8e-23])
+        plt.hist(self.__Nt,bins=100)
         plt.title('PSD analytique du bruit')
         plt.xlabel('Sn(f)^(1/2) (1/sqrt(Hz))')
         #plt.yscale('log')
@@ -300,7 +301,7 @@ class GenTemplate:
             raise ValueError("Les seules valeurs autorisées pour kindTemplate sont 'EM' et 'EOB'")
         
         
-        self.__fDmin=20               # Frequence min detecteur en Hz
+        self.__fDmin=fDmin            # Frequence min detecteur en Hz
         self.__fe=fe                  # Frequence d'echantillonage en Hz
         self.__delta_t=1/self.__fe    # Période
         self.__Tdepass=0.1            # Temps rajouté à la fin du signal pour éviter les pics de TF
@@ -409,17 +410,18 @@ class GenTemplate:
             #
         
             fmin=self.get_f(self.getTchirp(self.__fDmin/2)+self.__Tdepass)*2
-            hp,_ = get_td_waveform(approximant='SEOBNRv4', mass1=self.__m1/Msol,mass2=self.__m2/Msol,delta_t=self.__delta_t,f_lower=fmin)
+            hp,hq = get_td_waveform(approximant='SEOBNRv4', mass1=self.__m1/Msol,mass2=self.__m2/Msol,delta_t=self.__delta_t,f_lower=fmin)
             
             c=0
             for c in range(len(hp)-1,-1,-1): # Don't consider 0 at the end
-                if abs(hp.numpy()[c])>1e-24:
+                if abs(hp.numpy()[c])>1e-25:
                     break
             #print(c)
             hp_tab=hp.numpy()[:c]
+            hq_tab=hq.numpy()[:c]
             if hp.sample_times.numpy()[c]>=0:
                 self.__TchirpAndTdepass=hp.sample_times.numpy()[c]-hp.sample_times.numpy()[0] # Total chirp length
-                print(self.__TchirpAndTdepass)
+                #print(self.__TchirpAndTdepass)
                 self.__St[:]=npy.concatenate((npy.zeros(self.__N-len(hp_tab)),hp_tab))
             else:
                 raise Exception("Erreur le temps de coalescence n'est pas pris en compte dans le template")
@@ -472,7 +474,7 @@ class GenTemplate:
         Noise=GenNoise(Ttot=self.__Ttot,fe=self.__fe, kindPSD=kindPSD)
         rho=self.rhoOpt(kindPSD=kindPSD,Tsample=Tsample,Noise=Noise) # The measurement when template is filtered with noise only
         Sf=npy.zeros(self.__N,dtype=complex)
-        Sf[:]=self.__Sf/npy.sqrt(2*Noise.PSD) # Whithening
+        Sf[:]=self.__Sf/npy.sqrt(Noise.PSD) # Whithening
         self.__St[:]=npy.fft.ifft(Sf,norm='ortho').real/(rho if norm else 1)
         print(len(self.__St))
     '''
@@ -717,6 +719,9 @@ def main():
         plt.figure()
         NGenerator.plot()
 
+        plt.figure()
+        NGenerator.plotPSD1D(fmin=8)
+
         plt.legend()
         plt.show()
     
@@ -750,7 +755,7 @@ def main():
         
         plt.figure()
         NGenerator.plot()
-        TGenerator.plot(Tsample=args.time,SNR=10.)
+        TGenerator.plot(Tsample=args.time,SNR=7.5)
             
         #plt.legend()
         plt.show()
