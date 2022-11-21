@@ -18,41 +18,47 @@ plt.rcParams.update(parameters)
 def softmax(X):
     X_exp = np.exp(X)
     partition = X_exp.sum(1, keepdims=True)
+    #print(X_exp)
+    #print(partition)
+    #print(X_exp / partition)
     return X_exp / partition 
 
+# Slow version (loop over elements)
 def usoftmax(X):
     X2=X
     for elem in X:
+        #print(elem[0],elem[1])
         diff=elem[0]-elem[1]
         soft=[1./(1.+np.exp(-diff)),1./(1.+np.exp(diff))]
+        #print (soft)
         elem[0]=soft[0]
         elem[1]=soft[1]
     return X2
+
+# Faaaast version
+def usoftmax_f(X):
+    diff=np.diff(X,1)
+    X2=np.concatenate((1./(1.+np.exp(diff)),1./(1.+np.exp(-diff))),axis=1)
+    return X2
+
 
 def accuracy(yhat,N,seuil=0.5):
     return (sensitivity(yhat,N,seuil)+1-FAR(yhat,N,seuil))/2
 
 def sensitivity(yhat,N,seuil=0.5):
     #superieur au seuil
-    #print(yhat[:N//2].T[0])
-    #print(((yhat[:N//2].T[0].astype(npy.float32)>=seuil)*npy.ones(N//2)).mean())
     return ((yhat[:N//2].T[0].astype(npy.float32)>=seuil)*npy.ones(N//2)).mean()
 
 def FAR(yhat,N,seuil=0.5):
     return 1-((yhat[-N//2:].T[0].astype(npy.float32)<seuil)*npy.ones(N//2)).mean()
 
 def Threshold(yhat,N,FAR=0.005):
-
     l=yhat[-N//2:].T[1]
-    #print(N,N//2)
     ind=int(npy.floor(FAR*(N//2)))
-    #print(l,ind)
-    
     if ind==0:
         print('Attention aucune fausse détection autorisée')
         ind=1
     seuil=1-npy.sort(l)[ind-1]
-    #print(seuil)
     return seuil
 
 class Results:
@@ -93,16 +99,16 @@ class Results:
     def Fill(self):
         self.__listEpochs.append(0) if len(self.__listEpochs)==0 else self.__listEpochs.append(self.__listEpochs[-1]+1)
         
-        self.__testOut.append(usoftmax(self.__cTrainer.net(self.__testSet[0].as_in_ctx(self.__device))).asnumpy())
+        self.__testOut.append(usoftmax_f(self.__cTrainer.net(self.__testSet[0].as_in_ctx(self.__device))).asnumpy())
         self.__listTestLoss.append(self.__cTrainer.loss(self.__cTrainer.net(self.__testSet[0].as_in_ctx(self.__device)), self.__testSet[1].as_in_ctx(self.__device)).mean().asnumpy())
         
-        self.__trainOut.append(usoftmax(self.__cTrainer.net(self.__cTrainer.cTrainSet[0].as_in_ctx(self.__device))).asnumpy())
+        self.__trainOut.append(usoftmax_f(self.__cTrainer.net(self.__cTrainer.cTrainSet[0].as_in_ctx(self.__device))).asnumpy())
         self.__listTrainLoss.append(self.__cTrainer.loss(self.__cTrainer.net(self.__cTrainer.cTrainSet[0].as_in_ctx(self.__device)), self.__cTrainer.cTrainSet[1].as_in_ctx(self.__device)).mean().asnumpy())
 
     def finishTraining(self):
         for snr in range(4,20):
             TestSet=(np.array(self.__testGenerator.getDataSet(SNRopt=snr/2).reshape(self.__NsampleTest,1,-1),dtype=np.float32),np.array(self.__testGenerator.Labels,dtype=np.int32))
-            self.__lastOuts.append(usoftmax(self.__cTrainer.net(TestSet[0].as_in_ctx(self.__device))).asnumpy())
+            self.__lastOuts.append(usoftmax_f(self.__cTrainer.net(TestSet[0].as_in_ctx(self.__device))).asnumpy())
             del TestSet
             
         del self.__cTrainer
@@ -350,11 +356,11 @@ class Printer:
                 dic[result.__getattribute__(label)]=[result]
         return dic.values()
 
-    def plotSensitivity(self,results,FAR=0.01):
+    def plotSensitivity(self,results,FAR=0.005):
         self.__nbSens+=1
         plt.figure('Sensitivity_Vs_SNRtest-'+str(self.__nbSens))
         SNRlist=[i for i in range(4,20)]
-        print('here',FAR)
+        
         if isinstance(results,list):
             if len(results)==1:
                 results=results[0]
@@ -374,7 +380,7 @@ class Printer:
                     meanSensitivity.append(npy.mean(l))
                     stdSensitivity.append(npy.std(l))
                         
-                plt.errorbar(SNRlist,meanSensitivity,stdSensitivity,label='Multiple Training')
+                plt.errorbar(SNRlist,meanSensitivity,stdSensitivity,label='Mutiple Training')
                         
             else:
                 for s_results in self._souslists(results,label):
@@ -405,20 +411,41 @@ class Printer:
             print('here')
             Sensitivitylist=[]
             for yhat in results.lastOuts:
-                #print(yhat,results.NsampleTest)
-                seuil=Threshold(yhat,results.NsampleTest,FAR=FAR)
-                #print(seuil)
-                #print(100*sensitivity(yhat,results.NsampleTest,seuil))
+                seuil=Threshold(yhat,results.NsampleTest,FAR)
+                print(seuil)
                 Sensitivitylist.append(100*sensitivity(yhat,results.NsampleTest,seuil))
             realSNRlist = [float(x) / 2. for x in SNRlist]
             plt.plot(realSNRlist,Sensitivitylist,'.-',label='Sensitivity')
-
         plt.xlabel('SNROpt')
         plt.ylabel('%')
         plt.grid(True, which="both", ls="-")
         plt.title(label='Sensitivity Vs SNRopt de Test pour un FAR='+str(FAR))
         plt.legend()
         
+    def plotMultiSensitivity(self,results):
+        self.__nbSens+=1
+        plt.figure('Sensitivity_Vs_SNRtest-'+str(self.__nbSens))
+        SNRlist=[i for i in range(4,20)]
+        
+        if isinstance(results,list):
+            if len(results)==1:
+                results=results[0]
+
+        for i in range(4):
+            Sensitivitylist=[]
+            
+            for yhat in results.lastOuts:
+                FAR=10**(-float(i+1))
+                seuil=Threshold(yhat,results.NsampleTest,FAR)
+                print(seuil)
+                Sensitivitylist.append(100*sensitivity(yhat,results.NsampleTest,seuil))
+            realSNRlist = [float(x) / 2. for x in SNRlist]
+            plt.plot(realSNRlist,Sensitivitylist,'.-',label='FAP='+str(FAR))
+        plt.xlabel('SNROpt')
+        plt.ylabel('%')
+        plt.grid(True, which="both", ls="-")
+        #plt.title(label='Sensitivity Vs SNRopt de Test pour un FAR='+str(FAR))
+        plt.legend()
         
     def savePrints(self,dossier,name):
         if not(os.path.isdir(dossier)):
@@ -467,7 +494,7 @@ def main():
     
     #définition du Printer
     printer=ur.Printer()
-    '''
+    
     if NbTraining==1:
         printer.plotDistrib(results[0],results[0].listEpochs[0],FAR=args.FAR)
         printer.plotDistrib(results[0],results[0].listEpochs[-1]*25//100,FAR=args.FAR)
@@ -477,8 +504,10 @@ def main():
         printer.plotMapDistrib(results[0],results[0].listEpochs[-1])
     
     printer.plotROC(results,FAR=args.FAR)
-    '''
+    
     printer.plotSensitivity(results,FAR=args.FAR)
+        
+    printer.plotMultiSensitivity(results)
     
     ## Sauvegarde des figures
     cheminsave='prints/'
