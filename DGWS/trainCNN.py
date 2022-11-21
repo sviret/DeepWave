@@ -19,13 +19,18 @@ class MyCNN(nn.Block):
         nn.Flatten(),nn.Dense(16, activation='relu'),nn.Dense(2))
 
     def forward(self, X):
-        return self.net(X)
+        return self.net(X.as_in_ctx(d2l.try_gpu()))
 
+'''
+Class containing the training setup
+'''
 
 class MyTrainer:
     """Classe réalisant l'entrainement du réseau"""
+    # Initialization
     def __init__(self,tabSNR=[8],tabEpochs=[10],lr=3e-3,batch_size=250,paramFile=None,net=None,loss=None,trainer=None):
         
+        # 1. Retrieve the info from the training config file
         if paramFile is None:
             self.__batch_size=batch_size
             self.__tabSNR=tabSNR
@@ -46,14 +51,21 @@ class MyTrainer:
         else:
             raise FileNotFoundError("Le fichier de paramètres n'existe pas")
         
-        self.__net=MyCNN() if net is None else net
-        self.__net.initialize(force_reinit=True, init=init.Xavier())
+        self.__device=d2l.try_gpu()
+        print("This training phase will be done on the following processor:",self.__device)
         
+        # 2. Retrieve the network and initialize it
+        self.__net=MyCNN() if net is None else net
+        self.__net.initialize(force_reinit=True, ctx=self.__device, init=init.Xavier())
+        
+        # 3. The training parameters are defined next
         self.__loss= gluon.loss.SoftmaxCrossEntropyLoss() if loss is None else loss
         self.__trainer= gluon.Trainer(self.__net.collect_params(), 'sgd', {'learning_rate': self.__lr}) if trainer is None else trainer
         self.__trainGenerator=None
         self.__cTrainSet=None
-    
+
+            
+    # Retrieve the training options
     def _readParamFile(self,paramFile):
         with open(paramFile) as mon_fichier:
             mon_fichier_reader = csv.reader(mon_fichier, delimiter=',')
@@ -82,18 +94,36 @@ class MyTrainer:
             raise Exception("Mauvais choix de type de Training dans le fichier de paramètre")
     
     def _clear(self):
-        self.__net.initialize(force_reinit=True, init=init.Xavier())
+        self.__net.initialize(force_reinit=True, ctx=self.__device, init=init.Xavier())
         del self.__trainer
         self.__trainer= gluon.Trainer(self.__net.collect_params(), 'sgd', {'learning_rate': self.__lr})
         self.__trainGenerator=None
         self.__cTrainSet=None
-    
+
+    def evaluate_accuracy_gpu(self,net, data_iter, device=None):  #@save
+        """Compute the accuracy for a model on a dataset using a GPU."""
+        if not device:  # Query the first device where the first parameter is on
+            device = list(net.collect_params().values())[0].list_ctx()[0]
+            print(device)
+        # No. of correct predictions, no. of predictions
+        metric = d2l.Accumulator(2)
+        for X, y in data_iter:
+            X, y = X.as_in_ctx(device), y.as_in_ctx(device)
+            metric.add(d2l.accuracy(net(X), y), d2l.size(y))
+        return metric[0] / metric[1]
+
+
+    # The training
     def train(self,TrainGenerator,results,verbose=True):
         self._clear()
         t_start=process_time()
+        
+        # First we pick data in the training sample and adapt it to the required starting SNR
         self.__trainGenerator=TrainGenerator
         self.__cTrainSet=(np.array(self.__trainGenerator.getDataSet(self.__tabSNR[0]).reshape(self.__trainGenerator.Nsample,1,-1),dtype=np.float32),
-        np.array(self.__trainGenerator.Labels,dtype=np.int8))
+        np.array(self.__trainGenerator.Labels,dtype=np.int32))
+        
+        # Put the init training properties in the results output file
         results.setMyTrainer(self)
         
         cTrain_iter=d2l.load_array(self.__cTrainSet,self.__batch_size)
@@ -107,16 +137,45 @@ class MyTrainer:
             if i>0:
                 del self.__cTrainSet
                 del cTrain_iter
+                # Create a dataset with the corresponding SNR
+                # Starting from the initial one at SNR=1
                 self.__cTrainSet=(np.array(self.__trainGenerator.getDataSet(self.__tabSNR[i]).reshape(self.__trainGenerator.Nsample,1,-1),dtype=np.float32),
-                np.array(self.__trainGenerator.Labels,dtype=np.int8))
+                np.array(self.__trainGenerator.Labels,dtype=np.int32))
+                
+                # cTrain_iter is an iterator over the training data
+                # It cuts the data set into minibatch of size batch_size
+                # GPU then deal with the batches in parallel
+                # This iter thing is explained on this page:
+                # https://classic.d2l.ai/chapter_linear-networks/linear-regression-scratch.html
+                # see part 3.2.2
+                 
                 cTrain_iter=d2l.load_array(self.__cTrainSet,self.__batch_size)
                 
+            # Then run for the corresponding epochs at this SNR range/value
             for epoch in range(self.__tabEpochs[i],self.__tabEpochs[i+1]):
-                for X, y in cTrain_iter:
+                # Here X is the input time serie, and y the exp output (0 for noise and 1 for signal)
+                # self.__net(X) is the current network output
+                compteur=0
+                metric = d2l.Accumulator(3)
+                for X, y in cTrain_iter: # Exhaust all the batches (GPU should enhance this step)
+                    compteur+=1
+                    # The data is put on the GPU, if not already done
+                    X, y = X.as_in_ctx(self.__device), y.as_in_ctx(self.__device)
+                    
                     with autograd.record():
-                        l = self.__loss(self.__net(X), y)
-                    l.backward()
-                    self.__trainer.step(self.__batch_size)
+                        y_hat = self.__net(X)
+                        l = self.__loss(y_hat, y) # Get the losses for this batch
+                    l.backward()                          # Backward propagation of the derivatives
+                    self.__trainer.step(self.__batch_size)# Update the parameters
+                    metric.add(l.sum(), d2l.accuracy(y_hat, y), self.__batch_size)
+                    
+                    #print(y)     # y[i] signal
+                    #print(y_hat) # y_hat[i][0] / noise score || y_hat[i][1] / signal score
+                    
+                #print(self.evaluate_accuracy_gpu(self.__net, cTrain_iter))
+                train_l = metric[0] / metric[2]
+                train_acc = metric[1] / metric[2]
+                print(f'loss {train_l:.3f}, train acc {train_acc:.3f}')
                 results.Fill()
                 if verbose:
                     print(f'epoch {epoch + 1}, loss {l.mean().asnumpy():f}')
@@ -179,27 +238,43 @@ def parse_cmd_line():
     args = parser.parse_args()
     return args
 
+'''
+The main training macro starts here
+'''
 
 def main():
     import useResults as ur
     import gendata as gd
     import trainCNN as tr
     
+    # Start by parsing the input options
     args = parse_cmd_line()
+    
+    # Then retrieve the input files
     TrainGenerator=gd.GenDataSet.readGenerator(args.TrainGenerator)
     TestGenerator=gd.GenDataSet.readGenerator(args.TestGenerator)
     
+    # And the training option
     if args.paramfile is None:
         cheminparams=os.path.dirname(__file__)+'/params/default_trainer_params.csv'
     else:
         cheminparams=args.paramfile
+        
+    # Then define the mxnet based trainer
     mytrainer=tr.MyTrainer(paramFile=cheminparams)
     
-    cheminresults=os.path.dirname(__file__)+'/results/'
-    ## boucle à paralléliser
+    cheminresults='results/'
+    
+    # We loop over the number of trainings to be done
+    
     for i in range(args.number):
+    
+        ## This is the basic training loop
+        # First create an object to store the results
         myresults=ur.Results(TestGenerator,SNRtest=args.SNRtest)
+        # Run the training loop
         mytrainer.train(TrainGenerator,myresults,verbose=args.verbose)
+        # Store the results
         myresults.saveResults(cheminresults)
 
 ############################################################################################################################################################################################

@@ -1,4 +1,5 @@
 from mxnet import np, npx
+from d2l import mxnet as d2l
 import numpy as npy
 import pickle
 import os
@@ -19,23 +20,39 @@ def softmax(X):
     partition = X_exp.sum(1, keepdims=True)
     return X_exp / partition 
 
+def usoftmax(X):
+    X2=X
+    for elem in X:
+        diff=elem[0]-elem[1]
+        soft=[1./(1.+np.exp(-diff)),1./(1.+np.exp(diff))]
+        elem[0]=soft[0]
+        elem[1]=soft[1]
+    return X2
+
 def accuracy(yhat,N,seuil=0.5):
     return (sensitivity(yhat,N,seuil)+1-FAR(yhat,N,seuil))/2
 
 def sensitivity(yhat,N,seuil=0.5):
     #superieur au seuil
+    #print(yhat[:N//2].T[0])
+    #print(((yhat[:N//2].T[0].astype(npy.float32)>=seuil)*npy.ones(N//2)).mean())
     return ((yhat[:N//2].T[0].astype(npy.float32)>=seuil)*npy.ones(N//2)).mean()
 
 def FAR(yhat,N,seuil=0.5):
     return 1-((yhat[-N//2:].T[0].astype(npy.float32)<seuil)*npy.ones(N//2)).mean()
 
 def Threshold(yhat,N,FAR=0.005):
+
     l=yhat[-N//2:].T[1]
+    #print(N,N//2)
     ind=int(npy.floor(FAR*(N//2)))
+    #print(l,ind)
+    
     if ind==0:
         print('Attention aucune fausse détection autorisée')
         ind=1
     seuil=1-npy.sort(l)[ind-1]
+    #print(seuil)
     return seuil
 
 class Results:
@@ -46,7 +63,7 @@ class Results:
         self.__testGenerator=TestGenerator
         self.__NsampleTest=self.__testGenerator.Nsample
         self.__testSet=(np.array(self.__testGenerator.getDataSet(self.__SNRtest).reshape(self.__NsampleTest,1,-1),dtype=np.float32),
-        np.array(self.__testGenerator.Labels,dtype=np.int8))
+        np.array(self.__testGenerator.Labels,dtype=np.int32))
         
         self.__kindPSD=self.__testGenerator.kindPSD
         self.__mInt=self.__testGenerator.mInt
@@ -60,7 +77,9 @@ class Results:
             
         self.__cTrainer=None
         self.__NsampleTrain=None
-            
+        
+        self.__device=d2l.try_gpu()
+        
     def setMyTrainer(self,mytrainer):
         self.__cTrainer=mytrainer
         self.__NsampleTrain=self.__cTrainer.trainGenerator.Nsample
@@ -74,16 +93,16 @@ class Results:
     def Fill(self):
         self.__listEpochs.append(0) if len(self.__listEpochs)==0 else self.__listEpochs.append(self.__listEpochs[-1]+1)
         
-        self.__testOut.append(softmax(self.__cTrainer.net(self.__testSet[0])).asnumpy())
-        self.__listTestLoss.append(self.__cTrainer.loss(self.__cTrainer.net(self.__testSet[0]), self.__testSet[1]).mean().asnumpy())
+        self.__testOut.append(usoftmax(self.__cTrainer.net(self.__testSet[0].as_in_ctx(self.__device))).asnumpy())
+        self.__listTestLoss.append(self.__cTrainer.loss(self.__cTrainer.net(self.__testSet[0].as_in_ctx(self.__device)), self.__testSet[1].as_in_ctx(self.__device)).mean().asnumpy())
         
-        self.__trainOut.append(softmax(self.__cTrainer.net(self.__cTrainer.cTrainSet[0])).asnumpy())
-        self.__listTrainLoss.append(self.__cTrainer.loss(self.__cTrainer.net(self.__cTrainer.cTrainSet[0]), self.__cTrainer.cTrainSet[1]).mean().asnumpy())
+        self.__trainOut.append(usoftmax(self.__cTrainer.net(self.__cTrainer.cTrainSet[0].as_in_ctx(self.__device))).asnumpy())
+        self.__listTrainLoss.append(self.__cTrainer.loss(self.__cTrainer.net(self.__cTrainer.cTrainSet[0].as_in_ctx(self.__device)), self.__cTrainer.cTrainSet[1].as_in_ctx(self.__device)).mean().asnumpy())
 
     def finishTraining(self):
-        for snr in range(2,16):
-            TestSet=(np.array(self.__testGenerator.getDataSet(SNRopt=snr).reshape(self.__NsampleTest,1,-1),dtype=np.float32),np.array(self.__testGenerator.Labels,dtype=np.int8))
-            self.__lastOuts.append(softmax(self.__cTrainer.net(TestSet[0])).asnumpy())
+        for snr in range(4,20):
+            TestSet=(np.array(self.__testGenerator.getDataSet(SNRopt=snr/2).reshape(self.__NsampleTest,1,-1),dtype=np.float32),np.array(self.__testGenerator.Labels,dtype=np.int32))
+            self.__lastOuts.append(usoftmax(self.__cTrainer.net(TestSet[0].as_in_ctx(self.__device))).asnumpy())
             del TestSet
             
         del self.__cTrainer
@@ -104,7 +123,6 @@ class Results:
     def saveResults(self,dossier):
         if not(os.path.isdir(dossier)):
             raise FileNotFoundError("Le dossier de sauvegarde n'existe pas")
-      
         fichier=dossier+self.__kindTraining+'-'+self.__kindTemplate+'-'+self.__kindBank+'-'+self.__kindPSD+'-'+str(self.__lr)+'-'+str(self.__minSNR)+'-1.p'
         c=1
         while os.path.isfile(fichier):
@@ -246,6 +264,7 @@ class Printer:
                 stdTrainLoss.append(npy.std(l))
                 
                 l=[result.TestLoss[epoch] for result in results]
+                #print(l)
                 meanTestLoss.append(npy.mean(l))
                 stdTestLoss.append(npy.std(l))
                 
@@ -331,11 +350,11 @@ class Printer:
                 dic[result.__getattribute__(label)]=[result]
         return dic.values()
 
-    def plotSensitivity(self,results,FAR=0.005):
+    def plotSensitivity(self,results,FAR=0.01):
         self.__nbSens+=1
         plt.figure('Sensitivity_Vs_SNRtest-'+str(self.__nbSens))
-        SNRlist=[i for i in range(2,16)]
-        
+        SNRlist=[i for i in range(4,20)]
+        print('here',FAR)
         if isinstance(results,list):
             if len(results)==1:
                 results=results[0]
@@ -343,7 +362,7 @@ class Printer:
         if isinstance(results,list):
             i=0
             label=self._findlabel(results)
-                  
+
             if label==None:
                 meanSensitivity=[]
                 stdSensitivity=[]
@@ -355,7 +374,7 @@ class Printer:
                     meanSensitivity.append(npy.mean(l))
                     stdSensitivity.append(npy.std(l))
                         
-                plt.errorbar(SNRlist,meanSensitivity,stdSensitivity,label='Mutiple Training')
+                plt.errorbar(SNRlist,meanSensitivity,stdSensitivity,label='Multiple Training')
                         
             else:
                 for s_results in self._souslists(results,label):
@@ -383,11 +402,16 @@ class Printer:
                     else:
                         raise AttributeError("Les attributs possibles pour les labels sont: SNRtrain, lr, kindTraining, kindPSD")
         else:
+            print('here')
             Sensitivitylist=[]
             for yhat in results.lastOuts:
-                seuil=Threshold(yhat,results.NsampleTest,FAR)
+                #print(yhat,results.NsampleTest)
+                seuil=Threshold(yhat,results.NsampleTest,FAR=FAR)
+                #print(seuil)
+                #print(100*sensitivity(yhat,results.NsampleTest,seuil))
                 Sensitivitylist.append(100*sensitivity(yhat,results.NsampleTest,seuil))
-            plt.plot(SNRlist,Sensitivitylist,'.-',label='Sensitivity')
+            realSNRlist = [float(x) / 2. for x in SNRlist]
+            plt.plot(realSNRlist,Sensitivitylist,'.-',label='Sensitivity')
 
         plt.xlabel('SNROpt')
         plt.ylabel('%')
@@ -443,6 +467,7 @@ def main():
     
     #définition du Printer
     printer=ur.Printer()
+    '''
     if NbTraining==1:
         printer.plotDistrib(results[0],results[0].listEpochs[0],FAR=args.FAR)
         printer.plotDistrib(results[0],results[0].listEpochs[-1]*25//100,FAR=args.FAR)
@@ -452,11 +477,11 @@ def main():
         printer.plotMapDistrib(results[0],results[0].listEpochs[-1])
     
     printer.plotROC(results,FAR=args.FAR)
-    
+    '''
     printer.plotSensitivity(results,FAR=args.FAR)
     
     ## Sauvegarde des figures
-    cheminsave=os.path.dirname(__file__)+'/prints/'
+    cheminsave='prints/'
     printer.savePrints(cheminsave,args.nom_etude)
     
     if args.display:

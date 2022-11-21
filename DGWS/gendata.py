@@ -1,10 +1,12 @@
 import numpy as npy
+import scipy
 import matplotlib.pyplot as plt
 import pickle
 import csv
 import os
 import math
 from pycbc.waveform import get_td_waveform
+from scipy.stats import norm
 
 #constantes physiques
 G=6.674184e-11
@@ -180,10 +182,13 @@ class GenNoise:
 
         # The initial phase is randomized
         for i in range(len(self.__Nfr)):
-            phi0 = float(npy.random.randint(1000))/1000.*8*math.atan(1.);
-            self.__Nfr[i]*=math.cos(phi0) # real part
-            self.__Nfi[i]*=math.sin(phi0) # imaginary part
-                
+            if i*self.__delta_f>=0:
+                phi0 = float(npy.random.randint(1000))/1000.*8*math.atan(1.);
+                self.__Nfr[i]*=math.cos(phi0) # real part
+                self.__Nfi[i]*=math.sin(phi0) # imaginary part
+            else:
+                self.__Nfr[i]*=0.
+                self.__Nfi[i]*=0.
         # Then we can define the components
         self.__Nf[0:self.__N//2+1].real=self.__Nfr[0:self.__N//2+1]
         self.__Nf[0:self.__N//2+1].imag=self.__Nfi[0:self.__N//2+1]
@@ -198,12 +203,26 @@ class GenNoise:
         self._genNtFromNf(whitening=whitening)
         return self.__Nt.copy()
     
-    def plot(self):
+    def plotNoise(self):
         plt.plot(self.__T, self.__Nt,'-',label='n(t)')
         plt.title('Réalisation d\'un bruit dans le domaine temporel')
         plt.xlabel('t (s)')
         plt.ylabel('n(t) (no unit)')
-        
+
+    def plotNoise1D(self):
+        _, bins, _ = plt.hist(self.__Nt,bins=100, density=1)
+        mu, sigma = scipy.stats.norm.fit(self.__Nt)
+        print("Largeur de la distribution temporelle (normalisée):",sigma)
+        print("Valeur moyenne:",mu)
+        best_fit_line = scipy.stats.norm.pdf(bins, mu, sigma)
+
+        plt.plot(bins, best_fit_line)
+        plt.title('Bruit temporel normalisé')
+        #plt.xlabel('n(t) (no unit)')
+        #string=rf'$#sigma=${sigma}'
+        #plt.text(2, 0.2, string, fontsize=15)
+
+
     def plotTF(self,fmin=None,fmax=None):
     
         ifmax=self.__N//2 if fmax is None else min(int(fmax/self.__delta_f),self.__N//2)
@@ -230,8 +249,8 @@ class GenNoise:
     def plotPSD1D(self,fmin=None,fmax=None):
         ifmax=self.__N//2 if fmax is None else min(int(fmax/self.__delta_f),self.__N//2)
         ifmin=0 if fmin is None else max(int(fmin/self.__delta_f),0)
-        #plt.hist(npy.abs(self.__Nf[ifmin:ifmax]),bins=100, range=[-8e-23, 8e-23])
-        plt.hist(self.__Nt,bins=100)
+        plt.hist(npy.abs(self.__Nf[ifmin:ifmax]),bins=100, range=[-8e-23, 8e-23])
+        #plt.hist(self.__Nt,bins=100)
         plt.title('PSD analytique du bruit')
         plt.xlabel('Sn(f)^(1/2) (1/sqrt(Hz))')
         #plt.yscale('log')
@@ -301,10 +320,11 @@ class GenTemplate:
             raise ValueError("Les seules valeurs autorisées pour kindTemplate sont 'EM' et 'EOB'")
         
         
-        self.__fDmin=fDmin            # Frequence min detecteur en Hz
+        self.__fDmin=0.8*fDmin        # Frequence min pour le signal reco
+        self.__fDmind=fDmin           # Frequence min pour le signal reco
         self.__fe=fe                  # Frequence d'echantillonage en Hz
         self.__delta_t=1/self.__fe    # Période
-        self.__Tdepass=0.1            # Temps rajouté à la fin du signal pour éviter les pics de TF
+        self.__Tdepass=0.2            # Temps rajouté à la fin du signal pour éviter les pics de TF
         self.__m1=10*Msol             # m1,m2 donnee en masse solaire
         self.__m2=10*Msol             #
         self.__D=1*MPC                # D en Mpc
@@ -316,6 +336,7 @@ class GenTemplate:
         self.__tSC=self.__rSC/c                        # Temps Schwarzchild du chirp
         self.__fisco=c**3/(6*npy.pi*npy.sqrt(6)*G*self.__M) # Fréquence de la dernière orbite stable
         self.__Tchirp=self.getTchirp(self.__fDmin/2)        # Durée du chirp entre fmin et la coalescence
+        self.__Tblack=self.getTchirp(self.__fDmin/2)-self.getTchirp(fDmin/2)        # Temps entre 0.8fdmin et fdmin
         self.__kindTemplate=kindTemplate                    # EM ou EOB
     
         #rajout de Tdepass pour eviter les oscillation dans la TF puis padding jusqu'à la première seconde entière (npy.ceil)
@@ -329,7 +350,7 @@ class GenTemplate:
         self.__St=npy.zeros(self.__N)                # Template dans le domaine temporel
         self.__Sf=npy.zeros(self.__N,dtype=complex)  # Template dans le domaine fréquenciel
         self.__Sfno=npy.zeros(self.__N,dtype=complex)
-                
+      
     def phi(self,t):
         return -npy.power(2.*(self.__tc-t)/(5.*self.__tSC),5./8.)
                         
@@ -375,7 +396,7 @@ class GenTemplate:
         self.__tSC=self.__rSC/c
         self.__fisco=c**3/(6*npy.pi*npy.sqrt(6)*G*self.__M)
         self.__Tchirp=self.getTchirp(self.__fDmin/2)
-        
+        self.__Tblack=self.getTchirp(self.__fDmin/2)-self.getTchirp(self.__fDmind/2)
         self.__Ttot=int(npy.ceil(self.getTchirp(self.__fDmin/2)+self.__Tdepass))
         self.__N=int(self.__Ttot*self.__fe)
         self.__delta_f=self.__fe/self.__N
@@ -397,8 +418,9 @@ class GenTemplate:
 
     def _genStFromParams(self):
         # From bin 0 to itmin-1 the signal is at 0, then put the signa
+        print(self.__Ttot,self.__Tchirp,self.__Tblack,self.__Tdepass)
         itmin=int((self.__Ttot-self.__Tchirp-self.__Tdepass)/self.__delta_t)
-        #print((self.__Ttot-self.__Tchirp-self.__Tdepass),itmin,self.__N)
+        print((self.__Ttot-self.__Tchirp-self.__Tdepass),itmin,self.__N)
         if self.__kindTemplate=='EM':
             self.__St[:]= npy.concatenate((npy.zeros(itmin),self.h(self.__T[itmin:-1]),npy.zeros(1)))
             #print(self.__St)
@@ -409,19 +431,25 @@ class GenTemplate:
             # https://pycbc.org/pycbc/latest/html/pycbc.waveform.html#pycbc.waveform.waveform.get_td_waveform
             #
         
-            fmin=self.get_f(self.getTchirp(self.__fDmin/2)+self.__Tdepass)*2
-            hp,hq = get_td_waveform(approximant='SEOBNRv4', mass1=self.__m1/Msol,mass2=self.__m2/Msol,delta_t=self.__delta_t,f_lower=fmin)
+            #fmin=self.get_f(self.getTchirp(self.__fDmin/2)+self.__Tdepass)*2
+            fmin=self.__fDmin
+            hp,hq = get_td_waveform(approximant='SEOBNRv4_opt', mass1=self.__m1/Msol,mass2=self.__m2/Msol,delta_t=self.__delta_t,f_lower=fmin)
             
             c=0
+            
             for c in range(len(hp)-1,-1,-1): # Don't consider 0 at the end
-                if abs(hp.numpy()[c])>1e-25:
+                #print(abs(hp.numpy()[c]))
+                if abs(hp.numpy()[c])>1e-35:
                     break
             #print(c)
             hp_tab=hp.numpy()[:c]
+            #print hp_tab
             hq_tab=hq.numpy()[:c]
+            #if (len(hp_tab)>self.__N):
+                
             if hp.sample_times.numpy()[c]>=0:
-                self.__TchirpAndTdepass=hp.sample_times.numpy()[c]-hp.sample_times.numpy()[0] # Total chirp length
-                #print(self.__TchirpAndTdepass)
+                self.__TchirpAndTdepass=hp.sample_times.numpy()[c]-hp.sample_times.numpy()[0]+self.__Tdepass # Total chirp length
+                print(self.__Ttot-self.__TchirpAndTdepass)
                 self.__St[:]=npy.concatenate((npy.zeros(self.__N-len(hp_tab)),hp_tab))
             else:
                 raise Exception("Erreur le temps de coalescence n'est pas pris en compte dans le template")
@@ -433,12 +461,14 @@ class GenTemplate:
         S=npy.zeros(self.__N)
         S[:]=self.__St[:]
         # Compute the bins where the signal will be screend to avoid discontinuity
-        iwmin=int((self.__Ttot-self.__Tchirp-self.__Tdepass)/self.__delta_t) if self.__kindTemplate=='EM' else int((self.__Ttot-self.__TchirpAndTdepass)/self.__delta_t)
-        iwmax=int((self.__Ttot-self.__Tchirp)/self.__delta_t) if self.__kindTemplate=='EM' else int((self.__Ttot-self.__TchirpAndTdepass+self.__Tdepass)/self.__delta_t)
+        iwmin=int((self.__Ttot-self.__Tchirp-self.__Tdepass)/self.__delta_t) if self.__kindTemplate=='EM' else int((self.__Ttot-self.__TchirpAndTdepass+self.__Tdepass)/self.__delta_t)
+        iwmax=int((self.__Ttot-self.__Tchirp-self.__Tdepass+self.__Tblack)/self.__delta_t) if self.__kindTemplate=='EM' else int((self.__Ttot-self.__TchirpAndTdepass+2*self.__Tdepass)/self.__delta_t)
         
-        print("Blackman window will be applied to the signal start between bins",iwmin,"and",iwmax)
+        print("Blackman window will be applied to the signal start between times",iwmin*self.__delta_t,"and",iwmax*self.__delta_t)
         #Fenetre de Blackmann à basse fréquence
         S[iwmin:iwmax]*=npy.blackman((iwmax-iwmin)*2)[:iwmax-iwmin]
+        
+        #print(S[iwmin:iwmax])
         
         #Fenetre de Blackmann à haute fréquence (EM only)
         if self.__kindTemplate=='EM':
@@ -459,9 +489,14 @@ class GenTemplate:
       
     def rhoOpt(self,Noise,kindPSD='flat',Tsample=1):
         ifmax=int(min(self.__fisco,self.__fe/2)/self.__delta_f) if self.__kindTemplate=='EM' else int(self.__fe/2)
-        ifmin= int(max(self.get_f(Tsample)*2,self.__fDmin)/self.__delta_f)
+        ifmin= int(max(self.get_f(Tsample)*2,self.__fDmind)/self.__delta_f)
+        
+        #ifmax= int(self.__fe/2)
+        #ifmin= 0
         # <x**2(t)> calculation
-        return 2*npy.sqrt(self.__delta_f*(self.__Sf[ifmin:ifmax]*npy.conjugate(self.__Sf[ifmin:ifmax])/Noise.PSD[ifmin:ifmax]).sum().real)
+        ropt=2*npy.sqrt(self.__delta_f*(self.__Sf[ifmin:ifmax]*npy.conjugate(self.__Sf[ifmin:ifmax])/Noise.PSD[ifmin:ifmax]).sum().real)
+        print(ropt)
+        return ropt
     
     def _whitening(self,kindPSD,Tsample,norm):
         if kindPSD is None:
@@ -474,9 +509,9 @@ class GenTemplate:
         Noise=GenNoise(Ttot=self.__Ttot,fe=self.__fe, kindPSD=kindPSD)
         rho=self.rhoOpt(kindPSD=kindPSD,Tsample=Tsample,Noise=Noise) # The measurement when template is filtered with noise only
         Sf=npy.zeros(self.__N,dtype=complex)
-        Sf[:]=self.__Sf/npy.sqrt(Noise.PSD) # Whithening
+        Sf[:]=npy.sqrt(1)*self.__Sf/npy.sqrt(Noise.PSD) # Whithening
         self.__St[:]=npy.fft.ifft(Sf,norm='ortho').real/(rho if norm else 1)
-        print(len(self.__St))
+        #print(len(self.__St))
     '''
     Generate a signal
     '''
@@ -536,6 +571,9 @@ class GenTemplate:
     @property
     def length(self):
         return self.__N
+        
+    def duration(self):
+        return self.__Ttot
     
 #################################################################################################################################################################################################
         
@@ -636,7 +674,7 @@ class GenDataSet:
                 c+=1
         
     def getDataSet(self,SNRopt=1):
-        return ((self.__Sig.T*npy.random.uniform(min(SNRopt),max(SNRopt),size=self.Nsample)).T if isinstance(SNRopt,tuple) else self.__Sig*SNRopt)+self.__Noise
+        return ((self.__Sig.T*npy.random.uniform((min(SNRopt)),(max(SNRopt)),size=self.Nsample)).T if isinstance(SNRopt,tuple) else self.__Sig*(SNRopt))+self.__Noise
         
     def plot(self,i,SNRopt=1):
         plt.plot(self.__NGenerator.T,self.getDataSet(SNRopt)[i],'.')
@@ -717,10 +755,13 @@ def main():
         NGenerator.plotTF(fmin=8)
             
         plt.figure()
-        NGenerator.plot()
-
+        NGenerator.plotNoise()
+            
         plt.figure()
-        NGenerator.plotPSD1D(fmin=8)
+        NGenerator.plotNoise1D()
+
+        #plt.figure()
+        #NGenerator.plotPSD1D(fmin=8)
 
         plt.legend()
         plt.show()
@@ -734,8 +775,10 @@ def main():
         TGenerator.plotTF()
             
         plt.figure()
-        TGenerator.plot(Tsample=args.time,SNR=10)
-            
+        print(TGenerator.duration())
+        #TGenerator.plot(Tsample=args.time,SNR=7.5)
+        TGenerator.plot(Tsample=TGenerator.duration(),SNR=7.5)
+        
         plt.legend()
         plt.show()
 
@@ -754,7 +797,7 @@ def main():
         NGenerator.plotTF(fmin=8)
         
         plt.figure()
-        NGenerator.plot()
+        NGenerator.plotNoise()
         TGenerator.plot(Tsample=args.time,SNR=7.5)
             
         #plt.legend()
@@ -762,15 +805,15 @@ def main():
         
     else: # Logically there is only set remaining, so dataset
         if args.set=='train':
-            chemin=os.path.dirname(__file__)+'/params/default_trainGen_params.csv'
+            chemin='params/default_trainGen_params.csv'
             Generator=gd.GenDataSet(paramFile=chemin)
         elif args.set=='test':
-            chemin=os.path.dirname(__file__)+'/params/default_testGen_params.csv'
+            chemin='params/default_testGen_params.csv'
             Generator=gd.GenDataSet(paramFile=chemin)
         else:
             Generator=gd.GenDataSet(paramFile=args.paramfile)
         
-        chemin = os.path.dirname(__file__)+'/generators/'
+        chemin = 'generators/'
         Generator.saveGenerator(chemin)
 
 ############################################################################################################################################################################################
