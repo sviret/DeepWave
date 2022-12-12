@@ -714,7 +714,7 @@ class GenTemplate:
         T=npy.arange(N)*self.__delta_t
         
         plt.plot(T, self.getSameSample(Tsample=Tsample,tc=tc)*SNR,'-',label='h(t)')
-        #plt.plot(T, self.getInitSample(Tsample=Tsample,tc=tc)*SNR,'-',label='h(t)')
+        plt.plot(T, self.getInitSample(Tsample=Tsample,tc=tc)*SNR,'-',label='h(t)')
         plt.title('Template dans le domaine temporel de masses ('+str(self.__m1/Msol)+','+str(self.__m2/Msol)+')Msolaire')
         plt.xlabel('t (s)')
         plt.ylabel('h(t) (No Unit)')
