@@ -1128,7 +1128,7 @@ def main():
 
     if args.cmd=='noise':
         NGenerator=gd.GenNoise(Ttot=args.time,fe=args.fe,kindPSD=args.kindPSD,fmin=args.fmin,fmax=args.fmax)
-        NGenerator.getNewSample(whitening=False)
+        NGenerator.getNewSample(whitening=True)
         
         plt.figure(figsize=(10,5))
         NGenerator.plotPSD(fmin=args.fmin,fmax=args.fmax)
