@@ -1,11 +1,11 @@
 ///////////////////////////////////
 //
-//  Exercise 2: play with the template bank
+//  Exercise 2: play with the chirp signal
 //
 //  Goal of the exercise:
 //
 //  Opening the root file created with og_ana code and
-//  display some bank properties
+//  display the signal and noise characteristics
 //
 //  This macro is the answer of question 2.2.4 of the following page:
 //
@@ -30,147 +30,234 @@
 
 
 //
-// Plot M_chirp vs T_util for all the templates
+// Plot the signal s(t), aligne with the correct t_c value
 //
 
 
-void plot_Coverage(std::string filename)
+void plot_Signal(std::string filename)
 {
   // First of all one has to retrieve all the data
     
-  TChain *Bank = new TChain("Bank");
-  Bank->Add(filename.c_str());
+  TChain *Signalinfo = new TChain("Chirpinfo");
+  Signalinfo->Add(filename.c_str());
 
-  double t_i;
-  double t_f;
-  double m_a;
-  double m_b;
+  std::vector<double>  *H = new std::vector<double>;
+  double t_init;
+  double t_bin;
+  double tchirp;
+  double snr;
     
-  Bank->SetBranchAddress("mass1",&m_a);
-  Bank->SetBranchAddress("mass2",&m_b);
-  Bank->SetBranchAddress("t_i",&t_i);
-  Bank->SetBranchAddress("t_f",&t_f);
+  Signalinfo->SetBranchAddress("Signaln",&H);
+  Signalinfo->SetBranchAddress("t_init",&t_init);
+  Signalinfo->SetBranchAddress("t_bin",&t_bin);
+  Signalinfo->SetBranchAddress("tchirp",&tchirp);
+  Signalinfo->SetBranchAddress("SNR",&snr);
     
-  // Get the number of templates
-  int Nt = Bank->GetEntries();
-  std::cout << "The bank contains " << Nt << " templates" << std::endl;
+  // Get the signal
+  Signalinfo->GetEntry(0);
     
-  // Do a first loop over the templates to get the plot range
-  
-  double m_c_max=0;
-  double t_u_max=0;
-  
-  double m_c,t_u;
+    int length=static_cast<int>(H->size());
+    std::cout << "The signal contains " << length << " data points" << std::endl;
     
-  for (int i=0;i<Nt;++i)
-  {
-      Bank->GetEntry(i);
-  
-      // Compute t_util and the chirp mass
-      
-      t_u=t_f-t_i;
-      m_c=(m_a+m_b)*pow(m_a*m_b/pow(m_a+m_b,2.),3./5.);
-
-      if (t_u>t_u_max) t_u_max=t_u;
-      if (m_c>m_c_max) m_c_max=m_c;
-  }
-
-  std::cout << "Longest signal " << t_u_max << " seconds" << std::endl;
-  std::cout << "Highest chirp mass " << m_c_max << " solar masses" << std::endl;
+    double t_min=100;
+    double t_max=-100;
+    double h_max=0;
     
-  // We can create the plot and fill it
-  TH2F *t_vs_c = new TH2F("","", 100,0,t_u_max, 100,0.,m_c_max);
-
-  for (int i=0;i<Nt;++i)
-  {
-     Bank->GetEntry(i);
+    // We do a first loop to get the time/amplitude limits of the chirp produced
     
-     // Compute t_util and the chirp mass
-        
-     t_u=t_f-t_i;
-     m_c=(m_a+m_b)*pow(m_a*m_b/pow(m_a+m_b,2.),3./5.);
-
-     t_vs_c->Fill(t_u,m_c);
-  }
-        
+    for (int i=0;i<length;++i)
+    {
+        if (H->at(i)==0) continue;
+        if (t_init+i*t_bin<t_min) t_min=t_init+i*t_bin;
+        if (t_init+i*t_bin>t_max) t_max=t_init+i*t_bin;
+        if (fabs(snr*H->at(i))>h_max) h_max=fabs(snr*H->at(i));
+    }
+    
+    std::cout << "Signal is comprised between " << t_min << " and " << t_max << "  secs " << std::endl;
+    std::cout << "Maximal amplitude is " << h_max << std::endl;
+    
+    // Now we create an histogram to plot the signal:
+    
+    int n_bins = int(1/t_bin);
+    TH2F *Chirp = new TH2F("Signal","Signal", n_bins,-1,0, 200,-1.05*h_max,1.05*h_max);
+    
+    for (int i=0;i<length;++i)
+    {
+        if (H->at(i)==0) continue;
+        if (t_init+i*t_bin<t_max-1) continue;
+        Chirp->Fill(t_init+i*t_bin-t_max,snr*H->at(i));
+    }
+    
     std::cout << "Do some plots" << std::endl;
     gStyle->SetOptStat(0);
     gStyle->SetOptTitle(0);
     
-    TCanvas *c1 = new TCanvas("c1","Template distribution",451,208,1208,604);
+    TCanvas *c1 = new TCanvas("c1","Chirp theoretical signal",451,208,1208,604);
     c1->SetFillColor(0);
-    c1->SetGridx();
     c1->SetGridy();
     c1->SetBorderSize(2);
     c1->SetLeftMargin(0.08);
     c1->SetFrameBorderMode(0);
     c1->SetFrameBorderMode(0);
 
-    t_vs_c->GetXaxis()->SetLabelSize(0.03);
-    t_vs_c->GetXaxis()->SetTitle("Time in detector sensitivity (in s)");
-    t_vs_c->GetYaxis()->SetTitle("Chirp mass (in solar masses)");
-    t_vs_c->SetMarkerStyle(20);
-    t_vs_c->Draw();
+    Chirp->GetXaxis()->SetLabelSize(0.03);
+    Chirp->GetXaxis()->SetTitle("time (in s)");
+    Chirp->GetYaxis()->SetTitle("h (a.u.)");
+    Chirp->SetMarkerStyle(7);
+    Chirp->Draw();
     
     c1->Update();
-    //c1->SaveAs("Chirp.png");
+    c1->SaveAs("Chirp.png");
 }
 
-
-
 //
-// Plot the template Fourier transform amplitude s^tilde(f) as a function of f
-// For the template of mass m_1 and m_2
+// Plot the raw signal h(t)=s(t)+n(t) in black, and superimpose the signal s(t) in red
 //
 
-void plot_Spectrum(std::string filename, int m_1, int m_2)
+void plot_RawSignal(std::string filename)
 {
   // First of all one has to retrieve all the data
     
-  TChain *Bank = new TChain("Bank");
-  Bank->Add(filename.c_str());
+  TChain *Signalinfo = new TChain("Chirpinfo");
+  Signalinfo->Add(filename.c_str());
 
-  double m_a;
-  double m_b;
+  std::vector<double>  *H = new std::vector<double>;
+  std::vector<double>  *Raw = new std::vector<double>;
+  double t_init;
+  double t_bin;
+  double tchirp;
+  double snr;
     
-  int m_a_ref = std::min(m_1,m_2);
-  int m_b_ref = std::max(m_1,m_2);
-      
-  Bank->SetBranchAddress("mass1",&m_a);
-  Bank->SetBranchAddress("mass2",&m_b);
+  Signalinfo->SetBranchAddress("Signaln",&H);
+  Signalinfo->SetBranchAddress("H",&Raw);
+  Signalinfo->SetBranchAddress("t_init",&t_init);
+  Signalinfo->SetBranchAddress("t_bin",&t_bin);
+  Signalinfo->SetBranchAddress("tchirp",&tchirp);
+  Signalinfo->SetBranchAddress("SNR",&snr);
     
-  std::vector<double>  *HFr = new std::vector<double>;
-  std::vector<double>  *HFi = new std::vector<double>;
+    // Get the signal
+    Signalinfo->GetEntry(0);
+    
+    int length=static_cast<int>(H->size());
+    std::cout << "The signal contains " << H->size() << " data points" << std::endl;
+    
+    double t_min=100;
+    double t_max=-100;
+    double h_max=0;
+    
+    // We do a first loop to get the time limit of the chirp produced
+    
+    for (int i=0;i<length;++i)
+    {
+        if (H->at(i)==0) continue;
+        if (t_init+i*t_bin<t_min) t_min=t_init+i*t_bin;
+        if (t_init+i*t_bin>t_max) t_max=t_init+i*t_bin;
+        if (fabs(Raw->at(i))>h_max) h_max=fabs(Raw->at(i));
+    }
+    
+    std::cout << "Signal is comprised between " << t_min << " and " << t_max << "  secs " << std::endl;
+    
+    // Now we create an histogram to plot the signal:
+    
+    int n_bins = int(2/t_bin);
+    TH2F *Chirp = new TH2F("Signal","Signal", n_bins,-2,0, 400,-1.05*h_max,1.05*h_max);
+    TH2F *Raws = new TH2F("Raws","Raws", n_bins,-2,0, 400,-1.05*h_max,1.05*h_max);
+    
+    for (int i=0;i<length;++i)
+    {
+        if (H->at(i)==0) continue;
+
+        Raws->Fill(t_init+i*t_bin-tchirp,Raw->at(i));
+        Chirp->Fill(t_init+i*t_bin-t_max,snr*H->at(i));
+    }
+    
+    std::cout << "Do some plots" << std::endl;
+    gStyle->SetOptStat(0);
+    gStyle->SetOptTitle(0);
+    
+    TCanvas *c1 = new TCanvas("c1","Signals and raw data",451,208,1208,604);
+    c1->SetFillColor(0);
+    c1->SetGridy();
+    c1->SetBorderSize(2);
+    c1->SetLeftMargin(0.05);
+    c1->SetFrameBorderMode(0);
+    c1->SetFrameBorderMode(0);
+    c1->Divide(1,2);
+    c1->cd(1);
+    c1->cd(1)->SetGridy();
+    Raws->SetMarkerStyle(20);
+    Raws->SetMarkerSize(0.3);
+    Raws->GetXaxis()->SetTitle("Time before coalescence (in s)");
+    Raws->GetXaxis()->SetLabelSize(0.05);
+    Raws->GetXaxis()->SetTitleSize(0.05);
+    Raws->GetXaxis()->SetTitleOffset(1);
+    Raws->GetXaxis()->SetTitleFont(42);
+    Raws->GetYaxis()->SetTitle("h(t)");
+    Raws->GetYaxis()->SetLabelFont(42);
+    Raws->GetYaxis()->SetLabelSize(0.05);
+    Raws->GetYaxis()->SetTitleSize(0.06);
+    Raws->GetYaxis()->SetTitleOffset(0.25);
+    Raws->GetYaxis()->SetTitleFont(42);
+    Raws->Draw();
+    
+    c1->cd(2);
+    c1->cd(2)->SetGridy();
+    Chirp->SetMarkerStyle(20);
+    Chirp->SetMarkerSize(0.3);
+    Chirp->SetMarkerColor(2);
+    Chirp->GetXaxis()->SetTitle("Time before coalescence (in s)");
+    Chirp->GetXaxis()->SetLabelSize(0.05);
+    Chirp->GetXaxis()->SetTitleSize(0.05);
+    Chirp->GetXaxis()->SetTitleOffset(1);
+    Chirp->GetXaxis()->SetTitleFont(42);
+    Chirp->GetYaxis()->SetTitle("h(t)");
+    Chirp->GetYaxis()->SetLabelFont(42);
+    Chirp->GetYaxis()->SetLabelSize(0.05);
+    Chirp->GetYaxis()->SetTitleSize(0.06);
+    Chirp->GetYaxis()->SetTitleOffset(0.25);
+    Chirp->GetYaxis()->SetTitleFont(42);
+    Chirp->Draw();
+    
+    c1->Update();
+    //c1->SaveAs("Chirp.png");
+    
+}
+
+//
+// Plot the raw signal Fourier transform amplitude h^tilde(f) as a function of f
+//
+
+void plot_RawSpectrum(std::string filename)
+{
+  // First of all one has to retrieve all the data
+    
+  TChain *Signalinfo = new TChain("Chirpinfo");
+  Signalinfo->Add(filename.c_str());
+
+  std::vector<double>  *RawHFr = new std::vector<double>;
+  std::vector<double>  *RawHFi = new std::vector<double>;
+  std::vector<double>  *SFr = new std::vector<double>;
+  std::vector<double>  *SFi = new std::vector<double>;
+  std::vector<double>  *NFr = new std::vector<double>;
+  std::vector<double>  *NFi = new std::vector<double>;
   double f_init;
   double f_bin;
+  double snr;
     
-  Bank->SetBranchAddress("Hfr",&HFr);
-  Bank->SetBranchAddress("Hfi",&HFi);
-  Bank->SetBranchAddress("f_init",&f_init);
-  Bank->SetBranchAddress("f_bin",&f_bin);
-       
-  // First check if the signal is in the bank
-  int idx=-1;
-  // Get the number of templates
-  int Nt = Bank->GetEntries();
+  Signalinfo->SetBranchAddress("Hfr",&RawHFr);
+  Signalinfo->SetBranchAddress("Hfi",&RawHFi);
+  Signalinfo->SetBranchAddress("Sfr",&SFr);
+  Signalinfo->SetBranchAddress("Sfi",&SFi);
+  Signalinfo->SetBranchAddress("Nfr",&NFr);
+  Signalinfo->SetBranchAddress("Nfi",&NFi);
+  Signalinfo->SetBranchAddress("f_init",&f_init);
+  Signalinfo->SetBranchAddress("f_bin",&f_bin);
+  Signalinfo->SetBranchAddress("SNR",&snr);
     
-  for (int i=0;i<Nt;++i)
-  {
-     Bank->GetEntry(i);
+  // Get the signal
+  Signalinfo->GetEntry(0);
     
-     // Compute t_util and the chirp mass
-     if (m_a==m_a_ref && m_b==m_b_ref)
-     {
-        idx=i;
-        break;
-     }
-  }
-    
-  if (idx==-1) return; // Not in the bank
-    
-  Bank->GetEntry(idx);
-    
-  int length=static_cast<int>(HFi->size());
+  int length=static_cast<int>(RawHFi->size());
   std::cout << "The signal contains " << length << " data points" << std::endl;
     
   double f_max=f_init+length*f_bin;
@@ -178,20 +265,36 @@ void plot_Spectrum(std::string filename, int m_1, int m_2)
   std::cout << "Signal is comprised between " << f_init << " and " << f_max << "  Hz " << std::endl;
   
   double max_ampl=0;
-  
+  double max_ampls=0;
+  double max_ampln=0;
+  double ampls,amplh,ampln;
+    
   for (int i=0;i<length;++i)
   {
-    if (sqrt(HFi->at(i)*HFi->at(i)+HFr->at(i)*HFr->at(i))>max_ampl)
-        max_ampl=sqrt(HFi->at(i)*HFi->at(i)+HFr->at(i)*HFr->at(i));
+    amplh=sqrt(RawHFi->at(i)*RawHFi->at(i)+RawHFr->at(i)*RawHFr->at(i));
+    ampls=sqrt(SFi->at(i)*SFi->at(i)+SFr->at(i)*SFr->at(i));
+    ampln=sqrt(NFi->at(i)*NFi->at(i)+NFr->at(i)*NFr->at(i));
+      
+    if (amplh>max_ampl) max_ampl=amplh;
+    if (ampls>max_ampls) max_ampls=ampls;
+    if (ampln>max_ampln) max_ampln=ampln;
   }
     
   // Now we create an histogram to plot the signal:
     
-  TH2F *RawTF = new TH2F("Fourier","Fourier", 1000,f_init,f_max, 400,0.,1.1*max_ampl);
-
+  TH2F *RawTF = new TH2F("Raw FFT","Raw FFT", 500,f_init,f_max, 400,0.,1.1*max_ampl);
+  TH2F *STF = new TH2F("Signal FFT","Signal FFT", 500,f_init,f_max, 400,0.,1.1*max_ampls);
+  TH2F *NTF = new TH2F("Noise FFT","Noise FFT", 500,f_init,f_max, 400,0.,1.1*max_ampln);
+    
   for (int i=0;i<length;++i)
   {
-     RawTF->Fill(f_init+i*f_bin,sqrt(HFi->at(i)*HFi->at(i)+HFr->at(i)*HFr->at(i)));
+    amplh=sqrt(RawHFi->at(i)*RawHFi->at(i)+RawHFr->at(i)*RawHFr->at(i));
+    ampls=sqrt(SFi->at(i)*SFi->at(i)+SFr->at(i)*SFr->at(i));
+    ampln=sqrt(NFi->at(i)*NFi->at(i)+NFr->at(i)*NFr->at(i));
+      
+    RawTF->Fill(f_init+i*f_bin,amplh);
+    STF->Fill(f_init+i*f_bin,ampls);
+    NTF->Fill(f_init+i*f_bin,ampln);
   }
     
     std::cout << "Do some plots" << std::endl;
@@ -202,17 +305,58 @@ void plot_Spectrum(std::string filename, int m_1, int m_2)
     c1->SetFillColor(0);
     c1->SetGridy();
     c1->SetBorderSize(2);
-    c1->SetLeftMargin(0.08);
+    c1->SetLeftMargin(0.04);
     c1->SetFrameBorderMode(0);
     c1->SetFrameBorderMode(0);
-
-    RawTF->GetXaxis()->SetLabelSize(0.03);
+    c1->Divide(2,2);
+    c1->cd(1);
+    RawTF->GetXaxis()->SetLabelSize(0.05);
+    RawTF->GetXaxis()->SetTitleSize(0.05);
+    RawTF->GetXaxis()->SetTitleOffset(1);
+    RawTF->GetXaxis()->SetTitleFont(42);
+    RawTF->GetYaxis()->SetLabelFont(42);
+    RawTF->GetYaxis()->SetLabelSize(0.05);
+    RawTF->GetYaxis()->SetTitleSize(0.06);
+    RawTF->GetYaxis()->SetTitleOffset(0.65);
+    RawTF->GetYaxis()->SetTitleFont(42);
     RawTF->GetXaxis()->SetTitle("Frequency (in Hz)");
-    RawTF->GetYaxis()->SetTitle("Amplitude (a.u.)");
+    RawTF->GetYaxis()->SetTitle("h(f) normalized and whitened");
     RawTF->SetMarkerStyle(20);
     RawTF->SetMarkerSize(0.2);
     RawTF->Draw();
 
+    c1->cd(2);
+    STF->GetXaxis()->SetLabelSize(0.05);
+    STF->GetXaxis()->SetTitleSize(0.05);
+    STF->GetXaxis()->SetTitleOffset(1);
+    STF->GetXaxis()->SetTitleFont(42);
+    STF->GetYaxis()->SetLabelFont(42);
+    STF->GetYaxis()->SetLabelSize(0.05);
+    STF->GetYaxis()->SetTitleSize(0.06);
+    STF->GetYaxis()->SetTitleOffset(0.65);
+    STF->GetYaxis()->SetTitleFont(42);
+    STF->GetXaxis()->SetTitle("Frequency (in Hz)");
+    STF->GetYaxis()->SetTitle("s(f) raw");
+    STF->SetMarkerStyle(20);
+    STF->SetMarkerSize(0.2);
+    STF->Draw();
+    
+    c1->cd(3);
+    NTF->GetXaxis()->SetLabelSize(0.05);
+    NTF->GetXaxis()->SetTitleSize(0.05);
+    NTF->GetXaxis()->SetTitleOffset(1);
+    NTF->GetXaxis()->SetTitleFont(42);
+    NTF->GetYaxis()->SetLabelFont(42);
+    NTF->GetYaxis()->SetLabelSize(0.05);
+    NTF->GetYaxis()->SetTitleSize(0.06);
+    NTF->GetYaxis()->SetTitleOffset(0.65);
+    NTF->GetYaxis()->SetTitleFont(42);
+    NTF->GetXaxis()->SetTitle("Frequency (in Hz)");
+    NTF->GetYaxis()->SetTitle("n(f) raw");
+    NTF->SetMarkerStyle(20);
+    NTF->SetMarkerSize(0.2);
+    NTF->Draw();
+    
     c1->Update();
     //c1->SaveAs("RawSpectrum.png");
     

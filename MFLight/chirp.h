@@ -19,10 +19,10 @@ class chirp
 {
 public:
     chirp();
-    chirp(double mass1,double mass2,double theta, double dist);
+    chirp(double mass1,double mass2,double dist);
     ~chirp();
  
-    void init(double mass1,double mass2,double theta, double dist);
+    void init(double mass1,double mass2,double dist);
     double get_Phi(double t);
     double get_a(double t);
     double get_h(double t);
@@ -40,7 +40,6 @@ private:
     const double Mpsec = pow(10.,6.)*3.08*pow(10.,16.); // 1Mpc, 1pc=3.26al=3,08*10^16m
     double m_mass1;    // Mass of object 1, in solar masses
     double m_mass2;    // Mass of object 2, in solar masses
-    double m_theta;    // Angle between the observer and a vector normal to the system plane
     double m_dist;     // Distance between the observer and the system in Mpc
 
     double m_M;        // Total mass (m1+m2)

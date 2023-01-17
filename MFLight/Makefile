@@ -10,7 +10,7 @@ INCS = $(ROOTSYS)/include/ $(PWD)/tclap-1.2.1/include/ .
 	@echo "*"
 	$(CXX) $(CFLAGS) $(addprefix -I, $(INCS)) -c $< -o $@
 
-og_ana:main.o chirp.o chirpgen.o bankgen.o filtregen.o jobparams.o
+og_ana:main.o chirp.o chirpgen.o bankgen.o filtregen.o testfft.o jobparams.o
 	@echo "Build gravitational wave analysis tool"
 	$(LD) $^ $(shell $(ROOTSYS)/bin/root-config --libs) -lfftw3 -o $@
 
