@@ -120,18 +120,26 @@ void chirpgen::create_function()
     f_init=0;
     f_bin=(t_bin/duration)*1000*f_s;
     
-    cout << endl;
-    cout << "--> Signal produced:" << endl;
-    cout << endl;
-    cout << "m1 = " << m_mass1 << " solar masses" <<endl;
-    cout << "m2 = " << m_mass2 << " solar masses" <<endl;
-    cout << "Dist bet m1 and m2 is 10r_s at t0 = " << mychirp->get_t0() << " s " <<endl;
-    cout << "At ti = " << ti << " s the wave frequency is " << 0.8*fi << " Hz" <<endl;
-    cout << "At tf = " << tf << " s the wave frequency is " << ff << " Hz" <<endl;
-    cout << "Coalescence at tc = 0 s " <<endl;
-    cout << "Sample length to be produced: " << duration << " seconds" <<endl;
-    cout << "Among which: " << timeindet << " will be in the detector acceptance" <<endl;
-    
+    if (m_mass1>0 && m_mass2>0)
+    {
+        cout << endl;
+        cout << "--> Signal produced:" << endl;
+        cout << endl;
+        cout << "m1 = " << m_mass1 << " solar masses" <<endl;
+        cout << "m2 = " << m_mass2 << " solar masses" <<endl;
+        cout << "Dist bet m1 and m2 is 10r_s at t0 = " << mychirp->get_t0() << " s " <<endl;
+        cout << "At ti = " << ti << " s the wave frequency is " << 0.8*fi << " Hz" <<endl;
+        cout << "At tf = " << tf << " s the wave frequency is " << ff << " Hz" <<endl;
+        cout << "Coalescence at tc = 0 s " <<endl;
+        cout << "Sample length to be produced: " << duration << " seconds" <<endl;
+        cout << "Among which: " << timeindet << " will be in the detector acceptance" <<endl;
+    }
+    else
+    {
+        cout << endl;
+        cout << "--> Just producing some noise" << endl;
+        cout << endl;
+    }
     
     //Allocate an array big enough to hold the FFT transform
     //Transform output in 1d contains, for a transform of size N,
@@ -237,7 +245,15 @@ void chirpgen::create_function()
     
     fftw_destroy_plan(p);
     
-
+    // If just asking noise there is no need to go further
+    if (m_mass1==0 || m_mass2==0)
+    {
+        // Fill the ROOT tree
+        Chirparams -> Fill();
+        fftw_cleanup();
+        return;
+    }
+    
     // The object has tchirp=duration by construction, we will move it a bit to test the
     // efficiency, between 0.75*duration and duration.
     

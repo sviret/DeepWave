@@ -63,5 +63,12 @@ int main(int argc, char** argv)
      delete my_fft;
   }
     
+  // Option 5: generate a noise
+  if (params.option()=="getnoise")
+  {
+    chirpgen* my_chirp = new chirpgen(0,0,0,params.sigma(),params.outfile());
+    delete my_chirp;
+  }
+    
   return 0;
 }

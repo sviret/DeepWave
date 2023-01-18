@@ -1,13 +1,13 @@
 ///////////////////////////////////
 //
-//  Exercise 2: play with the template bank
+//  Exercise 3: play with the template bank
 //
 //  Goal of the exercise:
 //
 //  Opening the root file created with og_ana code and
 //  display some bank properties
 //
-//  This macro is the answer of question 2.2.4 of the following page:
+//  This macro is the answer of question 2.3.3 of the following page:
 //
 //  http://sviret.web.cern.ch/sviret/Welcome.php?n=Virgo.Ana
 //

@@ -271,9 +271,9 @@ void plot_RawSpectrum(std::string filename)
     
   for (int i=0;i<length;++i)
   {
-    amplh=sqrt(RawHFi->at(i)*RawHFi->at(i)+RawHFr->at(i)*RawHFr->at(i));
-    ampls=sqrt(SFi->at(i)*SFi->at(i)+SFr->at(i)*SFr->at(i));
-    ampln=sqrt(NFi->at(i)*NFi->at(i)+NFr->at(i)*NFr->at(i));
+    amplh=1/f_bin*sqrt(RawHFi->at(i)*RawHFi->at(i)+RawHFr->at(i)*RawHFr->at(i));
+    ampls=1/f_bin*sqrt(SFi->at(i)*SFi->at(i)+SFr->at(i)*SFr->at(i));
+    ampln=1/f_bin*sqrt(NFi->at(i)*NFi->at(i)+NFr->at(i)*NFr->at(i));
       
     if (amplh>max_ampl) max_ampl=amplh;
     if (ampls>max_ampls) max_ampls=ampls;
@@ -288,9 +288,9 @@ void plot_RawSpectrum(std::string filename)
     
   for (int i=0;i<length;++i)
   {
-    amplh=sqrt(RawHFi->at(i)*RawHFi->at(i)+RawHFr->at(i)*RawHFr->at(i));
-    ampls=sqrt(SFi->at(i)*SFi->at(i)+SFr->at(i)*SFr->at(i));
-    ampln=sqrt(NFi->at(i)*NFi->at(i)+NFr->at(i)*NFr->at(i));
+    amplh=1/f_bin*sqrt(RawHFi->at(i)*RawHFi->at(i)+RawHFr->at(i)*RawHFr->at(i));
+    ampls=1/f_bin*sqrt(SFi->at(i)*SFi->at(i)+SFr->at(i)*SFr->at(i));
+    ampln=1/f_bin*sqrt(NFi->at(i)*NFi->at(i)+NFr->at(i)*NFr->at(i));
       
     RawTF->Fill(f_init+i*f_bin,amplh);
     STF->Fill(f_init+i*f_bin,ampls);
