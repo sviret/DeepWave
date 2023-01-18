@@ -27,7 +27,7 @@
 // Main constructor
 // Bank initialization
 
-bankgen::bankgen(double mass_min,double mass_max, std::string outfile):
+bankgen::bankgen(double mass_min,double mass_max,double noise , std::string outfile):
 T(new std::vector<double>),
 H(new std::vector<double>),
 Tf(new std::vector<double>),
@@ -37,7 +37,9 @@ Hfi(new std::vector<double>)
     
   bankgen::reset();
     
-  f_s=4.096;
+  f_s=2.048;
+    
+
   t_init=-30;
   t_bin=(1/(f_s*1000));
   f_init=0;
@@ -46,8 +48,9 @@ Hfi(new std::vector<double>)
   m_outf=outfile;
   m_mass1=mass_min;
   m_mass2=mass_max;
-  m_dist=1;
-  m_theta=45;
+
+  m_sigma=noise*1e-23; // Noise value is rescaled to strain unit
+
   bankgen::initTuple();    // Create the bank ROOT file
   bankgen::create_bank();  // Bank creation
      
@@ -63,15 +66,14 @@ Hfi(new std::vector<double>)
 //////////////////////////////////////////////
 void bankgen::create_bank()
 {
-    double fi = 30;      // Interferometer low sensitivity (in Hz)
-                         // Take a bit lower to smooth the fourier transform
-    double ff = 2000;    // Interferometer high sensitivity (in Hz)
+    double fi = 15;      // Interferometer low sensitivity (in Hz)
+    double ff = 1000;    // Interferometer high sensitivity (in Hz)
 
     // We define the chirp over a maximum period of 30s here
     double duration = 30;  // Max signal duration, in seconds
     
     // Use it to get the number of sampling points over measurement time
-    int  n=static_cast<int>(duration*f_s*1000);
+    int  n_size=static_cast<int>(duration*f_s*1000)+1;
     
     //Allocate an array big enough to hold the transform output
     //Transform output in 1d contains, for a transform of size N,
@@ -82,9 +84,10 @@ void bankgen::create_bank()
     // just keep the useful signal part
     
     double re,im;
-    double *in = new double[2*((n+1)/2+1)];
-    
-    Int_t n_size = n+1;
+    double *in = new double[2*(n_size/2+1)];
+
+    // We will need it for whitening
+    m_psd=2*m_sigma*m_sigma*n_size;
     
     // The FFT is handled via the FFTW algorithm
     //
@@ -96,14 +99,15 @@ void bankgen::create_bank()
     fftw_plan p;
     
     chirp *mychirp=new chirp();
-    
+    double scaling=1e-21;
+
     // Create the bank of chirp signals
     
     for(double m1=m_mass1 ; m1<=m_mass2 ; m1++)
     {
         for(double m2=m1 ; m2<=m_mass2 ; m2++)  // Pair are just done once (m1,m2) and not (m2,m1)
         {
-            mychirp->init(m1,m2,m_theta*4*atan(1.)/180.,m_dist);
+            mychirp->init(m1,m2,1);
             T->clear();
             H->clear();
             Tf->clear();
@@ -115,20 +119,27 @@ void bankgen::create_bank()
             // Divide by 2 because binary orbital rotation frequency is
             // half the frequency of the wave
     
-            t_i = mychirp->get_time(fi/2);
+            t_i = mychirp->get_time(0.8*fi/2);
             t_f = mychirp->get_time(ff/2);
     
             // Here we resize the Fourier transform as we perform it
             // only on the useful part of the signal
             
-            int npts= std::min(n_size,static_cast<int>((t_f-t_i)/t_bin)+1);
+            int npts= std::min(n_size,static_cast<int>((-t_i)/t_bin)+1);
 
             input = (fftw_complex*) fftw_malloc(npts*2 * sizeof(fftw_complex));
             output = (fftw_complex*) fftw_malloc(npts*2 * sizeof(fftw_complex));
 
-            for(int k=0;k<npts;++k) in[k]=0;
+            for(int k=0;k<n_size;++k) in[k]=0;
             
-            
+            for (int i=0; i<=npts; i++)
+            {
+                input[i][0]=0.;
+                input[i][1]=0.;
+                output[i][0]=0.;
+                output[i][1]=0.;
+            }
+                
             cout <<endl;
             cout << "Feeding the bank with the following template" <<endl;
             cout << "m1 = " << m1 << " solar masses" <<endl;
@@ -136,24 +147,21 @@ void bankgen::create_bank()
             cout << "At ti = " << t_i << " s the wave frequency is " << fi << " Hz" <<endl;
             cout << "At tf = " << t_f << " s the wave frequency is " << ff << " Hz" <<endl;
             cout << "Coalescence at tc = " << mychirp->get_tc() << " s " <<endl;
-
-            t_i = std::max(t_i,-30.); // Fit into the chunk size, if needed
             
             mass1=m1;
             mass2=m2;
             
             int i = 0;
-            for(double t=t_i ; t<=t_f ; t=t+(1/(f_s*1000)))
+            for(double t=0. ; t<=-t_i ; t=t+(1/(f_s*1000)))
             {
-                i++ ;
-                in[i]=0;
-                if (t>=t_i && t<=t_f) in[i] = mychirp->get_h(t);
+                ++i;
+                in[i] = mychirp->get_h(t+t_i);
 
-                input[i][0]=in[i];
+                input[i][0]=in[i]/scaling;
                 input[i][1]=0.;
                 
                 T->push_back(t);
-                H->push_back(in[i]);
+                //H->push_back(in[i]);
             }
                 
             // Signal is created, we FFT it
@@ -164,17 +172,42 @@ void bankgen::create_bank()
             // Important to store the frequency bin width as it
             // will depend on the template here.
             
-            f_bin=1./T->size()*f_s*1000;
+            //f_bin=1./T->size()*f_s*1000;
+            f_bin=1./(std::min(duration,-t_i));
      
-            for (Int_t j=0; j<=H->size()/2-1; j++)
-            {
-                re = output[j][0];
-                im = output[j][1];
+            SNRmax=0.;
 
-                Tf->push_back(float(j)*f_bin);
+            for (int i=0; i<=npts/2-1; i++)
+            {
+                // Non-whitened FFT
+                
+                re = output[i][0]*scaling/sqrt(T->size());
+                im = output[i][1]*scaling/sqrt(T->size());
+                
+                // Whitened
+                re /= sqrt(m_psd/2);
+                im /= sqrt(m_psd/2);
+                                
+                Tf->push_back(float(i)*f_bin);
                 Hfr->push_back(re);
                 Hfi->push_back(im);
+                
+                //if (re*re+im*im>10000)
+                //    cout << i*f_bin << " /" << re*re+im*im << endl;
+                
+                if (i*f_bin<15) continue;
+                if (i*f_bin>1000) continue;
+
+                // Scaling factor to get the correct SNRmax
+                // in the detector freq domain
+                SNRmax+=(re*re+im*im);
             }
+                        
+            SNRmax=sqrt(2*SNRmax); // Final norm factor
+            std::cout<< "SNRmax compute in the frequency range [15,1000]: " << SNRmax << std::endl;
+            std::cout<< "Whitened signal with this value will have an SNR of 1 " << std::endl;
+            
+            
             input=0;
             output=0;
             bankparams -> Fill();
@@ -188,8 +221,7 @@ void bankgen::reset()
 {
   m_mass1=0;
   m_mass2=0;
-  m_dist=0;
-  m_theta=0;
+  m_psd=0;
     
   T->clear();
   H->clear();
@@ -200,12 +232,13 @@ void bankgen::reset()
   tchirp = 0;
   mass1=0;
   mass2=0;
-    t_i=0;
-    t_f=0;
-    t_init=0;
-    t_bin=0;
-    f_init=0;
-    f_bin=0;
+  t_i=0;
+  t_f=0;
+  t_init=0;
+  t_bin=0;
+  f_init=0;
+  f_bin=0;
+  SNRmax=0;
 }
 
 
@@ -234,6 +267,7 @@ void bankgen::initTuple()
     bankparams->Branch("t_bin",&t_bin);    // Time bin
     bankparams->Branch("f_init",&f_init);  // Starting frequency
     bankparams->Branch("f_bin",&f_bin);    // Frequency bin
+    bankparams->Branch("SNRmax",&SNRmax);  // The normalisation factor to be used with the filter
 }
 
 

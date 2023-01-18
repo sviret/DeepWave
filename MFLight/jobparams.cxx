@@ -16,7 +16,7 @@ jobparams::jobparams(int argc, char** argv){
 				false, "getchirp", "string");
      cmd.add(option);
        
-     ValueArg<double> dist("d","dist","distance bet. the 2 sources (in Mpsec)",
+     ValueArg<double> dist("r","dist","distance bet. the 2 sources (in Mpsec)",
 				   false, 1., "float");
      cmd.add(dist);
 
@@ -51,6 +51,18 @@ jobparams::jobparams(int argc, char** argv){
     ValueArg<double> sigma("s","sigma","standard deviation of the normal distribution",
                   false, 1., "float");
     cmd.add(sigma);
+       
+    ValueArg<double> freq("f","freq","",
+                     false, 1., "float");
+    cmd.add(freq);
+       
+    ValueArg<double> sfreq("q","sfreq","",
+                     false, 1., "float");
+    cmd.add(sfreq);
+       
+    ValueArg<double> duration("d","duration","",
+                     false, 1., "float");
+    cmd.add(duration);
      // parse
      cmd.parse(argc, argv);
      
@@ -64,6 +76,9 @@ jobparams::jobparams(int argc, char** argv){
     m_mass2        = mass2.getValue();
     m_te           = te.getValue();
     m_sigma        = sigma.getValue();
+    m_freq         = freq.getValue();
+    m_sfreq        = sfreq.getValue();
+    m_duration     = duration.getValue();
    }
     
    catch (ArgException &e){ // catch exception from parse

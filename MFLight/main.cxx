@@ -5,14 +5,12 @@
 
 // Internal includes
 
+#include "testfft.h"
 #include "chirpgen.h"
 #include "bankgen.h"
 #include "filtregen.h"
 #include "jobparams.h"
 #include "TROOT.h"
-
-
-
 
 using namespace std;
 
@@ -40,7 +38,7 @@ int main(int argc, char** argv)
   // Option 1: create a temporal chirp function and add some gaussian noise to it
   if (params.option()=="getchirp")
   {
-    chirpgen* my_chirp = new chirpgen(params.mass1(),params.mass2(),params.theta(),params.dist(),params.sigma(),params.outfile());
+    chirpgen* my_chirp = new chirpgen(params.mass1(),params.mass2(),params.dist(),params.sigma(),params.outfile());
     delete my_chirp;
   }
 
@@ -54,9 +52,23 @@ int main(int argc, char** argv)
   // Option 3: create a bank of templates
   if (params.option()=="getbank")
   {
-    bankgen* my_bank = new bankgen(params.mass1(),params.mass2(),params.outfile());
+    bankgen* my_bank = new bankgen(params.mass1(),params.mass2(),params.sigma(),params.outfile());
     delete my_bank;
   }
 
+  // Option 4: test FFTW
+  if (params.option()=="test")
+  {
+     testfft* my_fft = new testfft(params.freq(),params.sfreq(),params.duration(),params.outfile());
+     delete my_fft;
+  }
+    
+  // Option 5: generate a noise
+  if (params.option()=="getnoise")
+  {
+    chirpgen* my_chirp = new chirpgen(0,0,0,params.sigma(),params.outfile());
+    delete my_chirp;
+  }
+    
   return 0;
 }

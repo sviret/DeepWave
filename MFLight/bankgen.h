@@ -50,7 +50,7 @@ class bankgen
  public:
 
     
-  bankgen(double mass_min,double mass_max,std::string outfile);
+  bankgen(double mass_min,double mass_max, double noise,std::string outfile);
 
   void  create_bank();  // The main method
   void  reset();
@@ -68,8 +68,9 @@ class bankgen
   double f_init, f_bin;
     
   double tchirp;
-  double m_theta;
-  double m_dist;
+  double m_sigma;
+  double m_psd;
+  double SNRmax;
     
   std::vector<double> *T;
   std::vector<double> *H;

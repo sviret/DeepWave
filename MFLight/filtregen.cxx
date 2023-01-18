@@ -2,8 +2,9 @@
 //
 // GW signal detection with matched filtering
 //
-//  Authors: S.Viret, based on initial code from B.Branchu and E.Pont
-//  Date   : 21/01/2022
+//  Authors : S.Viret, based on initial code from B.Branchu and E.Pont
+//  Date    : 21/01/2022
+//  Maj.Rev.: 13/01/2023
 //
 //  Input parameters:
 //
@@ -81,7 +82,7 @@ void filtregen::do_MF()
   double f_m1,f_m2;
   double f_binbank;
   double tchirp;
-  double psd,norm;
+  double norm,SNRmax;
     
   H=&mH;
   Hs=&mHs;
@@ -98,6 +99,7 @@ void filtregen::do_MF()
   Bank->SetBranchAddress("mass1",&b_mass1);
   Bank->SetBranchAddress("mass2",&b_mass2);
   Bank->SetBranchAddress("f_bin",&f_binbank);
+  Bank->SetBranchAddress("SNRmax",&SNRmax);
     
   Signalinfo->SetBranchAddress("H",&Hs);
   Signalinfo->SetBranchAddress("Hfr",&Hsfr);
@@ -151,33 +153,8 @@ void filtregen::do_MF()
       
     // We run over all the signal FFT bins
     // to compute the normalization factor of the template
-    double sigval=0.;
-      
-    for (int i=0;i<mHsfr.size();i++)
-    {
-        // We do that only within the detector sensitivity
-        // (== infinite noise ponderation elsewhere)
-        //
-        if (f_init+i*f_bin<40) continue;
-        if (f_init+i*f_bin>1000) continue;
-    
-        // The template fourier transform is not
-        // computed on the same number of point.
-        // One has to find the right index
-        // and normalize correctly the bin size
-          
-        i_bk=static_cast<int>(i*f_bin/f_binbank);
-        norm=f_bin/f_binbank;
-        
-        // Power spectral density of the noise at frequency f
-        psd=(mNfr[i]*mNfr[i] + mNfi[i]*mNfi[i])/(60/t_bin);
- 
-        // Scaling factor to get the correct S/N
-        sigval+=norm*norm*(mHfr[i_bk]*mHfr[i_bk] + mHfi[i_bk]*mHfi[i_bk])/(psd);
-    }
-      
-    sigval=sqrt(2*sigval); // Final norm factor
-      
+    double sigval=SNRmax;
+
     for (int i=0;i<mHsfr.size();i++)
     {
       input[i][0]= 0.;
@@ -189,7 +166,7 @@ void filtregen::do_MF()
       // We do that only within the detector sensitivity
       // (== infinite noise ponderation elsewhere)
       //
-      if (f_init+i*f_bin<40) continue;
+      if (f_init+i*f_bin<15) continue;
       if (f_init+i*f_bin>1000) continue;
   
       // The template fourier transform is not
@@ -198,13 +175,16 @@ void filtregen::do_MF()
       // and normalize correctly the bin size
         
       i_bk=static_cast<int>(i*f_bin/f_binbank);
-      norm=f_bin/f_binbank;
-        
+      norm=sqrt(f_bin/f_binbank); // Normalisation factor due to
+                                  // Possible f bin difference
+                                  // In the two functions
+    
       // Power spectral density of the noise at frequency f
-      psd=(mNfr[i]*mNfr[i] + mNfi[i]*mNfi[i])/(60/t_bin);
-        
+      // is not needed because signals are already whitened
+
       // Matched filter value for bin i
-      // Complete this part
+      // Note The signal is already whitened
+      // Part to complete (Exercise 5)
       Htfr->at(i)=0.;
       Htfi->at(i)=0.;
                
@@ -223,13 +203,11 @@ void filtregen::do_MF()
     // The factor 2 wandering around comes from the fact that size of the backward FFT is
     // half of the initial one (only account for positive frequencies)
     // Bin size at the output is therefore 2*t_bin
-      
-    double norm_filtered=sqrt(float(n/2))*sigval;
-      
+ 
     // Filtered signal along time
     for (int binx = 1; binx<=n; binx++)
     {
-        Hfin->push_back( output[binx-1][0]/norm_filtered);
+        Hfin->push_back( 2*output[binx-1][0]/sigval);
         Tfin->push_back( t_init+2*binx*t_bin );
     }
       

@@ -34,6 +34,10 @@ class jobparams{
   double       mass2() const;
   double       te() const;
   double       sigma() const;
+  double       sfreq() const;
+  double       freq() const;
+  double       duration() const;
+
     
  private:
 
@@ -47,6 +51,9 @@ class jobparams{
   double        m_mass2;
   double        m_te;
   double        m_sigma;
+  double        m_freq;
+  double        m_sfreq;
+  double        m_duration;
 };
 
 inline std::string jobparams::option() const{
@@ -89,4 +96,15 @@ inline double jobparams::sigma() const{
     return m_sigma;
 }
 
+inline double jobparams::freq() const{
+    return m_freq;
+}
+
+inline double jobparams::sfreq() const{
+    return m_sfreq;
+}
+
+inline double jobparams::duration() const{
+    return m_duration;
+}
 #endif
