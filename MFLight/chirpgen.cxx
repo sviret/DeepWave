@@ -175,6 +175,9 @@ void chirpgen::create_function()
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::default_random_engine generator (seed);
     
+    // To get a random value x based on normal distribution, you just have to do:
+    // x = distribution(generator)
+  
     // The FFT is handled via the FFTW algorithm
     //
     // https://www.fftw.org
