@@ -449,7 +449,6 @@ void chirpgen::initTuple()
     Chirparams->Branch("Signaln",&Signaln);
     Chirparams->Branch("H",&H);
     Chirparams->Branch("T",&T);
-    Chirparams->Branch("H",&H);
     Chirparams->Branch("N",&N);
     Chirparams->Branch("mass1",&m_mass1);
     Chirparams->Branch("mass2",&m_mass2);
