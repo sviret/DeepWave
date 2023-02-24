@@ -26,7 +26,9 @@ filtregen::filtregen(std::string bank, std::string signal, std::string outfile):
 Htfr(new std::vector<double>),
 Htfi(new std::vector<double>),
 Tfin(new std::vector<double>),
-Hfin(new std::vector<double>)
+Hfin(new std::vector<double>),
+Hfinr(new std::vector<double>),
+Hfini(new std::vector<double>)
 {
   filtregen::reset();
     
@@ -79,7 +81,7 @@ void filtregen::do_MF()
   double s_mass2;
   double b_mass1;
   double b_mass2;
-  double f_m1,f_m2;
+  double f_m1,f_m2,f_mc,s_mc;
   double f_binbank;
   double tchirp;
   double norm,SNRmax;
@@ -123,6 +125,7 @@ void filtregen::do_MF()
     
   f_m1=0;
   f_m2=0;
+  f_mc=0;
     
   // OK we have everything, we can start
     
@@ -130,7 +133,15 @@ void filtregen::do_MF()
   Signalinfo->GetEntry(0);
 
   int  n=Hsfr->size();
+
+  double eta,m1,m2;
     
+  m1=s_mass1;
+  m2=s_mass2;
+  eta=(m1*m2)/(pow(m1+m2,2.));
+    
+  s_mc=pow(eta,3./5.)*(m1+m2);
+  
   // Allocate sufficient space in the TF plan elements
   input = (fftw_complex*) fftw_malloc(n*2 * sizeof(fftw_complex));
   output = (fftw_complex*) fftw_malloc(n*2 * sizeof(fftw_complex));
@@ -142,19 +153,26 @@ void filtregen::do_MF()
   {
     if (j%10==0) cout << "Processing template " << j << "/" << n_entries << endl;
     Bank->GetEntry(j);
-   
+      
+    m1=b_mass1;
+    m2=b_mass2;
+    eta=(m1*m2)/(pow(m1+m2,2.));
+    
     c_mass2=b_mass2;
     c_mass1=b_mass1;
-
+    c_mc=pow(eta,3./5.)*(m1+m2);
+      
     Htfr->clear();
     Htfi->clear();
     Hfin->clear();
+    Hfinr->clear();
+    Hfini->clear();
     Tfin->clear();
       
     // We run over all the signal FFT bins
     // to compute the normalization factor of the template
     double sigval=SNRmax;
-
+     // std::cout << f_bin << " / " << f_binbank << endl;
     for (int i=0;i<mHsfr.size();i++)
     {
       input[i][0]= 0.;
@@ -175,16 +193,14 @@ void filtregen::do_MF()
       // and normalize correctly the bin size
         
       i_bk=static_cast<int>(i*f_bin/f_binbank);
-      norm=sqrt(f_bin/f_binbank); // Normalisation factor due to
-                                  // Possible f bin difference
-                                  // In the two functions
+      norm=sqrt(f_bin/f_binbank);
     
       // Power spectral density of the noise at frequency f
       // is not needed because signals are already whitened
 
+        
       // Matched filter value for bin i
-      // Note The signal is already whitened
-      // Part to complete (Exercise 5)
+      // Complete this part
       Htfr->at(i)=0.;
       Htfi->at(i)=0.;
                
@@ -207,11 +223,14 @@ void filtregen::do_MF()
     // Filtered signal along time
     for (int binx = 1; binx<=n; binx++)
     {
-        Hfin->push_back( 2*output[binx-1][0]/sigval);
+        //cout << output[binx-1][0] << "//" << output[binx-1][1] << endl;
+        Hfin->push_back( 2*sqrt(output[binx-1][0]*output[binx-1][0]+output[binx-1][1]*output[binx-1][1])/sigval);
+        Hfinr->push_back( 2*output[binx-1][0]/sigval);
+        Hfini->push_back( 2*output[binx-1][1]/sigval);
         Tfin->push_back( t_init+2*binx*t_bin );
     }
       
-    Filtreparams->Fill();
+
    
     maxH = 0.;
     maxT = 0.;
@@ -226,7 +245,10 @@ void filtregen::do_MF()
             maxT = Tfin->at(k);
         }
     }
-   
+
+    maxrho=maxH;
+    Filtreparams->Fill();
+      
     // Check if this is the largest obtained so far
     if (maxH > maxHtot)
     {
@@ -235,6 +257,7 @@ void filtregen::do_MF()
         bestentry = j;
         f_m1=c_mass1;
         f_m2=c_mass2;
+        f_mc=c_mc;
     }
  }  
    
@@ -242,8 +265,8 @@ void filtregen::do_MF()
     
  cout << endl;
  cout << " End of the match filtering loop  " << bestentry << endl;
- cout << "    Best match found is m1/m2  = " << f_m1 << "/" << f_m2 << endl;
- cout << "    *Real signal is m1/m2      = " << s_mass1 << "/" << s_mass2 << endl;
+ cout << "    Best match found is mc - m1/m2  = " << f_mc << " - " << f_m1 << "/" << f_m2 << endl;
+ cout << "    *Real signal is mc - m1/m2      = " << s_mc << " - " << s_mass1 << "/" << s_mass2 << endl;
  cout << "    Coalescence time found is  = " << maxTtot << " s " << endl;
  cout << "    *Real Tc time is           = " << tchirp << " s" << endl;
  cout << "    Peak magnitude is  " << maxHtot << endl;
@@ -256,10 +279,14 @@ void filtregen::reset()
 {
   c_mass1=0;
   c_mass2=0;
+  c_mc=0;
+  maxrho=0;
     
   Htfr->clear();
   Htfi->clear();
   Hfin->clear();
+  Hfinr->clear();
+  Hfini->clear();
   Tfin->clear();
 }
 
@@ -274,7 +301,11 @@ void filtregen::initTuple()
     Filtreparams->Branch("Htfi",&Htfi);
     Filtreparams->Branch("c_mass1",&c_mass1);
     Filtreparams->Branch("c_mass2",&c_mass2);
+    Filtreparams->Branch("m_chirp",&c_mc);
     Filtreparams->Branch("Hfin",&Hfin);
+    Filtreparams->Branch("Hfinr",&Hfinr);
+    Filtreparams->Branch("Hfini",&Hfini);
     Filtreparams->Branch("Tfin",&Tfin);
+    Filtreparams->Branch("peakrho",&maxrho);
 }
 

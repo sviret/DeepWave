@@ -48,7 +48,6 @@ Hfi(new std::vector<double>)
   m_outf=outfile;
   m_mass1=mass_min;
   m_mass2=mass_max;
-
   m_sigma=noise*1e-23; // Noise value is rescaled to strain unit
 
   bankgen::initTuple();    // Create the bank ROOT file
@@ -100,7 +99,8 @@ void bankgen::create_bank()
     
     chirp *mychirp=new chirp();
     double scaling=1e-21;
-
+    double eta;
+    
     // Create the bank of chirp signals
     
     for(double m1=m_mass1 ; m1<=m_mass2 ; m1++)
@@ -151,6 +151,9 @@ void bankgen::create_bank()
             mass1=m1;
             mass2=m2;
             
+            eta=(m1*m2)/(pow(m1+m2,2.));
+            mc=pow(eta,3./5.)*(m1+m2);
+            
             int i = 0;
             for(double t=0. ; t<=-t_i ; t=t+(1/(f_s*1000)))
             {
@@ -161,7 +164,6 @@ void bankgen::create_bank()
                 input[i][1]=0.;
                 
                 T->push_back(t);
-                //H->push_back(in[i]);
             }
                 
             // Signal is created, we FFT it
@@ -232,6 +234,7 @@ void bankgen::reset()
   tchirp = 0;
   mass1=0;
   mass2=0;
+  mc=0;
   t_i=0;
   t_f=0;
   t_init=0;
@@ -256,6 +259,7 @@ void bankgen::initTuple()
     bankparams->Branch("H",&H);            // Corresponding h value
     bankparams->Branch("mass1",&mass1);    // Ma (in solar masses)
     bankparams->Branch("mass2",&mass2);    // Mb (in solar masses)
+    bankparams->Branch("mchirp",&mc);      // Mchirp (in solar masses)
     bankparams->Branch("t_i",&t_i);        // Time at which the template enters the frequency
                                            // range of the interferometer (f_low)
     bankparams->Branch("t_f",&t_f);        // Time at which the template exits the frequency
