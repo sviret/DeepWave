@@ -191,7 +191,7 @@ void chirpgen::create_function()
     
     for (int i = 0; i<T->size()/2; i++)
     {
-      // Reminder: the normalization factor is already in the PSD
+ 
       input[i][0] = distribution(generator); // Noise;
       input[i][1] = input[i][0];
 
@@ -215,6 +215,11 @@ void chirpgen::create_function()
       // It also help to avoid performing calculations with very small
       // numbers, which is always a bit risky
         
+      // Classic normalisation
+      //input[i][0] /= sqrt(n_size);
+      //input[i][1] /= sqrt(n_size);
+        
+      // Whitening
       input[i][0] /= sqrt(m_psd/2);
       input[i][1] /= sqrt(m_psd/2);
         
@@ -238,7 +243,7 @@ void chirpgen::create_function()
     int i=0;
     for(double t=t_init ; t<t_init+duration ; t=t+t_bin)
     {
-        noise[i]= 2*output[i][0]/sqrt(n_size); // Noise
+        noise[i]= 2*output[i][0]/(sqrt(n_size)); // Noise
         N->push_back(noise[i]);
         ++i;
     }
@@ -449,6 +454,7 @@ void chirpgen::initTuple()
     Chirparams->Branch("Signaln",&Signaln);
     Chirparams->Branch("H",&H);
     Chirparams->Branch("T",&T);
+    Chirparams->Branch("H",&H);
     Chirparams->Branch("N",&N);
     Chirparams->Branch("mass1",&m_mass1);
     Chirparams->Branch("mass2",&m_mass2);

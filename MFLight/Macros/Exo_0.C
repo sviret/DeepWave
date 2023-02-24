@@ -21,7 +21,6 @@
 #include <iostream>
 
 #include "TStyle.h"
-#include "TGraph.h"
 #include "TSystem.h"
 #include "TFile.h"
 #include "TChain.h"
@@ -134,64 +133,75 @@ void plot_Signal(std::string filename)
 }
 
 
-void plot_Signal_wGraph(std::string filename)
-{
-  // First of all one has to retrieve all the data
-    
-  TChain *Signalinfo = new TChain("Chirpinfo");
-  Signalinfo->Add(filename.c_str());
 
-  std::vector<double>  *H = new std::vector<double>;
-  std::vector<double>  *Hfr = new std::vector<double>;
-  std::vector<double>  *Hfi = new std::vector<double>;
-  std::vector<double>  *Hn = new std::vector<double>;
-  double t_init;
-  double t_bin;
-  double f_init;
-  double f_bin;
-    
-  Signalinfo->SetBranchAddress("Signal",&H);
-  Signalinfo->SetBranchAddress("Signaln",&Hn);
-  Signalinfo->SetBranchAddress("Hfr",&Hfr);
-  Signalinfo->SetBranchAddress("Hfi",&Hfi);
-  Signalinfo->SetBranchAddress("t_init",&t_init);
-  Signalinfo->SetBranchAddress("t_bin",&t_bin);
-  Signalinfo->SetBranchAddress("f_init",&f_init);
-  Signalinfo->SetBranchAddress("f_bin",&f_bin);
-    
-  // Get the signal
-  Signalinfo->GetEntry(0);
-    
+
+void plot_wGraph(std::string filename)
+{
+    // First of all one has to retrieve all the data
+      
+    TChain *Signalinfo = new TChain("FFT");
+    Signalinfo->Add(filename.c_str());
+
+    std::vector<double>  *H = new std::vector<double>;
+    std::vector<double>  *Hfr = new std::vector<double>;
+    std::vector<double>  *Hfi = new std::vector<double>;
+    std::vector<double>  *Hn = new std::vector<double>;
+    double t_init;
+    double t_bin;
+    double f_init;
+    double f_bin;
+      
+    Signalinfo->SetBranchAddress("Signal",&H);
+    Signalinfo->SetBranchAddress("Signal_r",&Hn);
+    Signalinfo->SetBranchAddress("Hfr",&Hfr);
+    Signalinfo->SetBranchAddress("Hfi",&Hfi);
+    Signalinfo->SetBranchAddress("t_init",&t_init);
+    Signalinfo->SetBranchAddress("t_bin",&t_bin);
+    Signalinfo->SetBranchAddress("f_init",&f_init);
+    Signalinfo->SetBranchAddress("f_bin",&f_bin);
+      
+    // Get the signal
+    Signalinfo->GetEntry(0);
+      
     int length=static_cast<int>(H->size());
-    int length2=static_cast<int>(Hfi->size());
     std::cout << "The signal contains " << length << " data points" << std::endl;
-    std::cout << "The freq contains " << length2 << " data points" << std::endl;
+
+    //TGraph* t = new TGraph(lenght, &tVector->at(0), &sVector->at(0));
+
+    std::vector<double>  *FFTAmp = new std::vector<double>;
+    std::vector<double>  *Freq = new std::vector<double>;
+    std::vector<double>  *Time = new std::vector<double>;
     
-  std::vector<double>  *FFTAmp = new std::vector<double>;
-  std::vector<double>  *Freq = new std::vector<double>;
-  std::vector<double>  *Time = new std::vector<double>;
+    FFTAmp->clear();
+    Freq->clear();
+    Time->clear();
     
-  FFTAmp->clear();
-  Freq->clear();
-  Time->clear();
+    double temp;
+    double famp=length*f_bin;
+    double f;
+    for (int i=0;i<length;++i)
+    {
+     temp = 1/f_bin*sqrt(Hfr->at(i)*Hfr->at(i)+Hfi->at(i)*Hfi->at(i));
+     FFTAmp->push_back(temp);
+     
+     // Frequency at the output is between 0 and f_nyquist for the first half
+     // And then between -f_nyquist and 0;
+        
+     f=f_init+i*f_bin;
+     if (i>length/2) f-=famp;
+       
+     Freq->push_back(f);
+     Time->push_back(t_init+i*t_bin);
+    }
+   
+    TGraph* Amp = new TGraph(length, &Time->at(0), &H->at(0));
+    TGraph* fftAmp = new TGraph(length, &Freq->at(0), &FFTAmp->at(0));
+
+    std::cout << "Do some plots" << std::endl;
+    gStyle->SetOptStat(0);
+    gStyle->SetOptTitle(0);
     
-  for (int i=0;i<length;++i) Time->push_back(t_init+i*t_bin);
-    
-  for (int i=0;i<length2;++i)
-  {
-    Freq->push_back(f_init+i*f_bin);
-    FFTAmp->push_back(1/f_bin*sqrt(Hfr->at(i)*Hfr->at(i)+Hfi->at(i)*Hfi->at(i)));
-  }
-    
-  TGraph* Amp    = new TGraph(length, &Time->at(0), &H->at(0));
-  TGraph* Ampn   = new TGraph(length, &Time->at(0), &Hn->at(0));
-  TGraph* fftAmp = new TGraph(length2, &Freq->at(0), &FFTAmp->at(0));
-    
-  std::cout << "Do some plots" << std::endl;
-  gStyle->SetOptStat(0);
-  gStyle->SetOptTitle(0);
-    
-  TCanvas *c1 = new TCanvas("c1","Chirp theoretical signal",451,208,1208,604);
+    TCanvas *c1 = new TCanvas("c1","Chirp theoretical signal",451,208,1208,604);
     c1->SetFillColor(0);
     c1->SetGridy();
     c1->SetBorderSize(2);

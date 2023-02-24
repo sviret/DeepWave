@@ -63,7 +63,7 @@ class bankgen
   double m_mass1;
   double m_mass2;
     
-  double mass1,mass2,t_i,t_f;
+  double mass1,mass2,t_i,t_f,mc;
   double t_init, t_bin;
   double f_init, f_bin;
     

@@ -27,7 +27,7 @@
 #include "TBranch.h"
 #include "TH2F.h"
 #include "TCanvas.h"
-
+#include "TGraph.h"
 
 //
 // Plot M_chirp vs T_util for all the templates
@@ -139,13 +139,13 @@ void plot_Spectrum(std::string filename, int m_1, int m_2)
   Bank->SetBranchAddress("mass1",&m_a);
   Bank->SetBranchAddress("mass2",&m_b);
     
-  std::vector<double>  *HFr = new std::vector<double>;
-  std::vector<double>  *HFi = new std::vector<double>;
+  std::vector<double>  *Hfr = new std::vector<double>;
+  std::vector<double>  *Hfi = new std::vector<double>;
   double f_init;
   double f_bin;
     
-  Bank->SetBranchAddress("Hfr",&HFr);
-  Bank->SetBranchAddress("Hfi",&HFi);
+  Bank->SetBranchAddress("Hfr",&Hfr);
+  Bank->SetBranchAddress("Hfi",&Hfi);
   Bank->SetBranchAddress("f_init",&f_init);
   Bank->SetBranchAddress("f_bin",&f_bin);
        
@@ -153,7 +153,7 @@ void plot_Spectrum(std::string filename, int m_1, int m_2)
   int idx=-1;
   // Get the number of templates
   int Nt = Bank->GetEntries();
-    
+  
   for (int i=0;i<Nt;++i)
   {
      Bank->GetEntry(i);
@@ -170,50 +170,49 @@ void plot_Spectrum(std::string filename, int m_1, int m_2)
     
   Bank->GetEntry(idx);
     
-  int length=static_cast<int>(HFi->size());
+  int length=static_cast<int>(Hfi->size());
   std::cout << "The signal contains " << length << " data points" << std::endl;
     
   double f_max=f_init+length*f_bin;
     
   std::cout << "Signal is comprised between " << f_init << " and " << f_max << "  Hz " << std::endl;
   
-  double max_ampl=0;
-  
+    
+  std::vector<double>  *FFTAmp = new std::vector<double>;
+  std::vector<double>  *Freq = new std::vector<double>;
+  FFTAmp->clear();
+  Freq->clear();
+    
   for (int i=0;i<length;++i)
   {
-    if (sqrt(HFi->at(i)*HFi->at(i)+HFr->at(i)*HFr->at(i))>max_ampl)
-        max_ampl=sqrt(HFi->at(i)*HFi->at(i)+HFr->at(i)*HFr->at(i));
+    Freq->push_back(f_init+i*f_bin);
+    FFTAmp->push_back(1/f_bin*sqrt(Hfr->at(i)*Hfr->at(i)+Hfi->at(i)*Hfi->at(i)));
   }
     
-  // Now we create an histogram to plot the signal:
     
-  TH2F *RawTF = new TH2F("Fourier","Fourier", 1000,f_init,f_max, 400,0.,1.1*max_ampl);
-
-  for (int i=0;i<length;++i)
-  {
-     RawTF->Fill(f_init+i*f_bin,sqrt(HFi->at(i)*HFi->at(i)+HFr->at(i)*HFr->at(i)));
-  }
+  // Now we create a graph to plot the signal:
+  TGraph* fftAmp = new TGraph(length, &Freq->at(0), &FFTAmp->at(0));
     
-    std::cout << "Do some plots" << std::endl;
-    gStyle->SetOptStat(0);
-    gStyle->SetOptTitle(0);
+  std::cout << "Do some plots" << std::endl;
+  gStyle->SetOptStat(0);
+  gStyle->SetOptTitle(0);
     
-    TCanvas *c1 = new TCanvas("c1","Raw signal spectrum",451,208,1208,604);
-    c1->SetFillColor(0);
-    c1->SetGridy();
-    c1->SetBorderSize(2);
-    c1->SetLeftMargin(0.08);
-    c1->SetFrameBorderMode(0);
-    c1->SetFrameBorderMode(0);
+  TCanvas *c1 = new TCanvas("c1","Raw signal spectrum",451,208,1208,604);
+  c1->SetFillColor(0);
+  c1->SetGridy();
+  c1->SetBorderSize(2);
+  c1->SetLeftMargin(0.08);
+  c1->SetFrameBorderMode(0);
+  c1->SetFrameBorderMode(0);
 
-    RawTF->GetXaxis()->SetLabelSize(0.03);
-    RawTF->GetXaxis()->SetTitle("Frequency (in Hz)");
-    RawTF->GetYaxis()->SetTitle("Amplitude (a.u.)");
-    RawTF->SetMarkerStyle(20);
-    RawTF->SetMarkerSize(0.2);
-    RawTF->Draw();
+  fftAmp->GetXaxis()->SetLabelSize(0.03);
+  fftAmp->GetXaxis()->SetTitle("Frequency (in Hz)");
+  fftAmp->GetYaxis()->SetTitle("Amplitude (a.u.)");
+  fftAmp->SetMarkerStyle(20);
+  fftAmp->SetMarkerSize(0.2);
+  fftAmp->Draw("AL");
 
-    c1->Update();
+  c1->Update();
     //c1->SaveAs("RawSpectrum.png");
     
 }
