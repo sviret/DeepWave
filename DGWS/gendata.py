@@ -1458,7 +1458,9 @@ class GenDataSet:
     def getDataSet(self,SNRopt=1,weight='auto'):
         nbands=self.__nTtot
         dset=[]
-
+        fdset = []
+        finaldset=[]
+        
         if weight=='auto':
             list_weights=self.__listSNRchunksAuto
         if weight=='balance':
@@ -1480,7 +1482,7 @@ class GenDataSet:
 
         # Dataset has form ([Nsample][N1],[Nsample][N2],...)
         # Reorganize it as [Nsample][N1+N2]
-        finaldset=[]
+        
 
         for i in range(self.Nsample):
             tempset=[]
