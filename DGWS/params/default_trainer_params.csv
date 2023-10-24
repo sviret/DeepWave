@@ -1,5 +1,7 @@
 batch_size,250
 lr,0.003
 kindTraining,Int
-tabEpochs,4,8,20,40,300
+tabEpochs,7,10,25,50,150
 tabSNR,48,24,36,16,24,12,16,8,10,6
+weightingTrain,special
+weightingTest,special
