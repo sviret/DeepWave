@@ -6,6 +6,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import numpy as npy
 from time import process_time
 import os
+import pickle
 import csv
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="mxnet.gluon.parameter")
@@ -321,7 +322,20 @@ class MyTrainer:
         for fig in figs:
             fig.savefig(pp, format='pdf')
         pp.close()
-
+        
+    def saveNet(self, dossier):
+        if not(os.path.isdir(dossier)):
+            raise FileNotFoundError("Le dossier de sauvegarde n'existe pas")
+        fichier=dossier+self.__kindTraining+'-'+str(self.__lr)+'-net-1.params'
+        c=1
+        while os.path.isfile(fichier):
+            c+=1
+            fichier=dossier+self.__kindTraining+'-'+str(self.__lr)+'-net-'+str(c)+'.params'
+        self.__net.save_parameters(fichier)    
+        #f=open(fichier, mode='wb')
+        #pickle.dump(self,f)
+        #f.close()
+        
     '''
     train: this is the main macro, here, taking as input the training sample
     
@@ -413,7 +427,8 @@ class MyTrainer:
                 train_l = metric[0] / metric[2]
                 train_acc = metric[1] / metric[2]
                 print(f'epoch {epoch + 1},loss {train_l:.3f}, train acc {train_acc:.3f}')
-                results.Fill()
+                if epoch%5==0:
+                    results.Fill()
 
         t_stop=process_time()
         
@@ -515,7 +530,7 @@ def main():
         mytrainer.train(TrainGenerator,myresults,verbose=args.verbose)
         # Store the results
         myresults.saveResults(cheminresults)
-        #mytrainer.savePrints(cheminsave)
+        mytrainer.saveNet(cheminresults)
 
 ############################################################################################################################################################################################
 if __name__ == "__main__":

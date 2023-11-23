@@ -97,7 +97,7 @@ class Results:
         
     def setMyTrainer(self,mytrainer):
         self.__cTrainer=mytrainer
-        self.__NsampleTrain=int(self.__cTrainer.trainGenerator.Nsample)
+        self.__NsampleTrain=int(self.__cTrainer.trainGenerator.Nsample/100) # Limit size of the result file
         self.__tsize=self.__NsampleTrain
         self.__kindTraining=self.__cTrainer.kindTraining
         self.__batch_size=self.__cTrainer.batch_size
