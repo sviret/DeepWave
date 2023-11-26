@@ -46,10 +46,11 @@ class GenDataSet:
 
     """Classe générant des signaux des sets de training 50% dsignaux+bruits 50% de bruits"""
 
-    def __init__(self,mint=(10,50),NbB=1,tcint=(0.75,0.95),kindPSD='flat',kindTemplate='EM',Ttot=1,fe=2048,kindBank='linear',paramFile=None,step=0.1,choice='train',length=100,whitening=1):
+    def __init__(self,mint=(10,50),NbB=1,tcint=(0.75,0.95),kindPSD='flat',kindTemplate='EM',Ttot=1,fe=2048,kindBank='linear',paramFile=None,step=0.1,choice='train',length=100,whitening=1,ninj=0):
     
         self.__choice=choice
         self.__length=length
+        self.__ninj=ninj
         if paramFile is None:
             self.__listTtot=Ttot
             self.__whiten=whitening
@@ -137,12 +138,14 @@ class GenDataSet:
     
             #self.__Signal[0]=npy.zeros(len(self.__Noise[0]))
     
-            ninj=10
-    
+            ninj=int(self.__ninj)
+
+            print(ninj,"signals will be injected in the data stream")
+
             for i in range(ninj):
 
-                m1=npy.random.uniform(35,75)
-                m2=npy.random.uniform(35,75)
+                m1=npy.random.uniform(5,45)
+                m2=npy.random.uniform(5,45)
                 SNR=npy.random.uniform(5,25)
                 self.__TGenerator.majParams(m1,m2)
 
@@ -152,9 +155,8 @@ class GenDataSet:
     
                 randt=npy.random.uniform(self.__TGenerator.duration(),self.__length)
 
-                print("")
-                print("Injection ",i)
-                print("m1,m2,SNR,tc",m1,m2,SNR,randt)
+
+                print("Injection",i,"(m1,m2,SNR,tc)=(",f'{m1:.1f}',f'{m2:.1f}',f'{SNR:.1f}',f'{randt:.1f}',")")
         
                 idxstart=int((randt-self.__TGenerator.duration())*self.__listfe[0])
     
@@ -164,10 +166,15 @@ class GenDataSet:
                 randt=npy.random.uniform(self.__TGenerator.duration(),self.__length)
 
             self.__Noise[0] += self.__Signal[0]
-
+            npts=float(len(self.__Noise[0]))
+            norm=self.__length/npts
+            
             plt.figure(figsize=(10,5))
-            plt.plot(npy.arange(len(self.__Noise[0])), self.__Noise[0])
-            plt.plot(npy.arange(len(self.__Noise[0])), self.__Signal[0])
+            plt.xlabel('t (s)')
+            plt.ylabel('h(t)')
+            plt.grid(True, which="both", ls="-")
+            plt.plot(npy.arange(len(self.__Noise[0]))*norm, self.__Noise[0])
+            plt.plot(npy.arange(len(self.__Noise[0]))*norm, self.__Signal[0])
             plt.show()
                 
     '''
@@ -288,7 +295,7 @@ class GenDataSet:
 
         # Now fill the object
         for i in range(0,self.__Ntemplate):
-            if c%1000==0:
+            if c%100==0:
                 print("Producing sample ",c,"over",self.__Ntemplate*self.__NbB)
             self.__TGenerator.majParams(m1=self.__GrilleMasses[i][0],m2=self.__GrilleMasses[i][1])
             temp=self.__TGenerator.getNewSample(kindPSD=self.__kindPSD,
@@ -622,6 +629,7 @@ def parse_cmd_line():
     parser.add_argument("-snr",help="SNR (pour creation de sequence)",type=float,default=7.5)
     parser.add_argument("-m1",help="Masse du premier objet",type=float,default=20)
     parser.add_argument("-m2",help="Masse du deuxième objet",type=float,default=20)
+    parser.add_argument("-n",help="Number of injections for frame gen",type=float,default=10)
     parser.add_argument("-length",help="Length of data chunck (in s)",type=float,default=300)
     parser.add_argument("--set","-s",help="Choix du type de set par défaut à générer",choices=['train','test','frame'],default=None)
     parser.add_argument("-step",help="Pas considéré pour la génération des paires de masses",type=float,default=0.1)
@@ -650,10 +658,10 @@ def main():
         plt.figure(figsize=(10,5))
         NGenerator.plotNoise()
 
-        plt.figure(figsize=(10,5))
-        NGenerator.plotNoiseTW()
-
         if args.verbose:
+            plt.figure(figsize=(10,5))
+            NGenerator.plotNoiseTW()
+        
             plt.figure(figsize=(10,5))
             NGenerator.plotPSD(fmin=args.fmin,fmax=args.fmax)
             NGenerator.plotTF(fmin=args.fmin,fmax=args.fmax)
@@ -683,10 +691,8 @@ def main():
         TGenerator.plotTFn()
         
         print(f"TGenerator.duration() = {TGenerator.duration()}")
-        #plt.figure(figsize=(10,5))
-        #TGenerator.plot(Tsample=args.time,SNR=7.5)
         plt.figure(figsize=(10,5))
-        TGenerator.plot(Tsample=TGenerator.duration(),tc=TGenerator.duration(),SNR=args.snr/npy.sqrt(1.))
+        TGenerator.plot(Tsample=TGenerator.duration(),tc=TGenerator.duration(),SNR=args.snr)
         
         plt.figure(figsize=(10,5))
         TGenerator.plotSignal1D()
@@ -709,16 +715,18 @@ def main():
         NGenerator=gn.GenNoise(Ttot=args.time,fe=args.fe,kindPSD=args.kindPSD,fmin=args.fmin,fmax=args.fmax,whitening=args.white,verbose=args.verbose)
         NGenerator.getNewSample()
                 
-        plt.figure(figsize=(10,5))
-        NGenerator.plotPSD(fmin=args.fmin,fmax=args.fmax)
-        NGenerator.plotTF(fmin=args.fmin,fmax=args.fmax)
+        
+        if args.verbose:
+            plt.figure(figsize=(10,5))
+            NGenerator.plotPSD(fmin=args.fmin,fmax=args.fmax)
+            NGenerator.plotTF(fmin=args.fmin,fmax=args.fmax)
         
         plt.figure(figsize=(10,5))
         NGenerator.plotNoise()
         if (len(args.time)>1):
-            TGenerator.plot(Tsample=TGenerator.duration(),tc=TGenerator.duration(),SNR=args.snr/npy.sqrt(1.))
+            TGenerator.plot(Tsample=TGenerator.duration(),tc=TGenerator.duration(),SNR=args.snr)
         else:
-            TGenerator.plot(Tsample=args.time,tc=TGenerator.duration(),SNR=args.snr/npy.sqrt(1.))
+            TGenerator.plot(Tsample=args.time,tc=TGenerator.duration(),SNR=args.snr)
 
         plt.show()
 
@@ -731,17 +739,18 @@ def main():
             Generator=gd.GenDataSet(paramFile=chemin,choice=set)
             Generator.saveGenerator(cheminout)
         elif args.set=='test':
+            print('here')
             chemin='./params/default_testGen_params.csv'
             set='test'
             Generator=gd.GenDataSet(paramFile=chemin,choice=set)
             Generator.saveGenerator(cheminout)
         elif args.set=='frame':
-            chemin='./params/default_testGen_params.csv'
             set='frame'
-            Generator=gd.GenDataSet(paramFile=chemin,choice=set,length=args.length)
+            Generator=gd.GenDataSet(paramFile=args.paramfile,choice=set,length=args.length,ninj=args.n)
             Generator.saveFrame(cheminout)
         else:
-            Generator=gd.GenDataSet(paramFile=args.paramfile)
+            Generator=gd.GenDataSet(paramFile=args.paramfile,choice='test')
+            Generator.saveGenerator(cheminout)
     
 
 

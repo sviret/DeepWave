@@ -332,9 +332,6 @@ class MyTrainer:
             c+=1
             fichier=dossier+self.__kindTraining+'-'+str(self.__lr)+'-net-'+str(c)+'.params'
         self.__net.save_parameters(fichier)    
-        #f=open(fichier, mode='wb')
-        #pickle.dump(self,f)
-        #f.close()
         
     '''
     train: this is the main macro, here, taking as input the training sample

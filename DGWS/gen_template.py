@@ -88,7 +88,7 @@ class GenTemplate:
 
         self.__whiten=whitening
         self.__fDmind=fDmin            # The minimum detectable frequency
-        self.__fDmin=0.85*fDmin        # Minimum frequency with a margin (need it to smooth the template FFT)
+        self.__fDmin=0.95*fDmin        # Minimum frequency with a margin (need it to smooth the template FFT)
         self.__fDmaxd=fDmax            # The maximum detectable frequency
         self.__delta_t=1/self.__fe     # Time step
         self.__Tdepass=0.1*self.__type # For the EM mode we add a small period after the chirp (to smooth FFT).
@@ -690,7 +690,7 @@ class GenTemplate:
 
         # Here is the number of points of the required frame
         N=int(Tsample*self.__fe)
-        N=N+N%2
+        N=N+1+N%2
         S=npy.zeros(N)
 
         itc=int(tc/self.__delta_t)
@@ -721,7 +721,7 @@ class GenTemplate:
     
         tc= self.__Ttot-self.__Tdepass if tc==None else min(tc,self.__Tchirp)
         N=int(Tsample*self.__fe)
-        N=N+N%2
+        N=N+1+N%2
         S=npy.zeros(N)
 
         itc=int(tc/self.__delta_t)
@@ -765,11 +765,11 @@ class GenTemplate:
             listT.append(npy.arange(N)*self.__delta_t)
         
         for j in range(self.__nTsample):
-            plt.plot(npy.resize(listT[j],len(self.getSameSample(Tsample=Tsample,tc=tc)[j])), self.getSameSample(Tsample=Tsample,tc=tc)[j]*SNR,'-',label='h(t)')
-
+            plt.plot(npy.resize(listT[j],len(self.getSameSample(Tsample=Tsample,tc=tc)[j])), self.getSameSample(Tsample=Tsample,tc=tc)[j]*SNR,'-',label=f"signal at {self.__listfe[j]} Hz")
+            
         plt.title('Template dans le domaine temporel de masses ('+str(self.__m1/Msol)+', '+str(self.__m2/Msol)+') Msolaire')
         plt.xlabel('t (s)')
-        plt.ylabel('h(t) (No Unit)')
+        plt.ylabel('h(t)')
         plt.grid(True, which="both", ls="-")
         plt.legend()
 

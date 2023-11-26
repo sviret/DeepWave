@@ -405,7 +405,7 @@ class GenNoise:
             plt.plot(listT[j], self.__Nt[j],'-',label=f"noise at {self.__listfe[j]} Hz")
 
         plt.xlabel('t (s)')
-        plt.ylabel('noise (no unit)')
+        plt.ylabel('h(t)')
         plt.grid(True, which="both", ls="-")
         plt.legend()
 
