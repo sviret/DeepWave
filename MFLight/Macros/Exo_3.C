@@ -31,12 +31,14 @@
 
 //
 // Plot M_chirp vs T_util for all the templates
-//
+// Exercise 2.3.3
 
 
 void plot_Coverage(std::string filename)
 {
   // First of all one has to retrieve all the data
+  // The content of the tree is described here:
+  // https://github.com/sviret/DeepWave/blob/OG_lab/MFLight/bankgen.cxx#L252
     
   TChain *Bank = new TChain("Bank");
   Bank->Add(filename.c_str());
@@ -121,7 +123,7 @@ void plot_Coverage(std::string filename)
 //
 // Plot the template Fourier transform amplitude s^tilde(f) as a function of f
 // For the template of mass m_1 and m_2
-//
+// Exo 2.3.4
 
 void plot_Spectrum(std::string filename, int m_1, int m_2)
 {
@@ -143,12 +145,14 @@ void plot_Spectrum(std::string filename, int m_1, int m_2)
   std::vector<double>  *Hfi = new std::vector<double>;
   double f_init;
   double f_bin;
+  double SNRmax;
     
   Bank->SetBranchAddress("Hfr",&Hfr);
   Bank->SetBranchAddress("Hfi",&Hfi);
   Bank->SetBranchAddress("f_init",&f_init);
   Bank->SetBranchAddress("f_bin",&f_bin);
-       
+  Bank->SetBranchAddress("SNRmax",&SNRmax);
+    
   // First check if the signal is in the bank
   int idx=-1;
   // Get the number of templates
@@ -186,7 +190,7 @@ void plot_Spectrum(std::string filename, int m_1, int m_2)
   for (int i=0;i<length;++i)
   {
     Freq->push_back(f_init+i*f_bin);
-    FFTAmp->push_back(1/f_bin*sqrt(Hfr->at(i)*Hfr->at(i)+Hfi->at(i)*Hfi->at(i)));
+    FFTAmp->push_back(1/SNRmax*sqrt(Hfr->at(i)*Hfr->at(i)+Hfi->at(i)*Hfi->at(i)));
   }
     
     

@@ -177,6 +177,9 @@ void chirpgen::create_function()
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::default_random_engine generator (seed);
     
+    // To get a random value x based on normal distribution, you just have to do:
+    // x = distribution(generator)
+    
     // The FFT is handled via the FFTW algorithm
     //
     // https://www.fftw.org
@@ -197,8 +200,7 @@ void chirpgen::create_function()
 
       double phi0 = float(rand()%1000)/1000.*8*atan(1.);
         
-      // The noise is random, so the initial phase for each frequency
-      // is random
+      // The noise is random, so is the initial phase for each frequency
         
       input[i][0] *= cos(phi0);
       input[i][1] *= sin(phi0);
@@ -213,7 +215,7 @@ void chirpgen::create_function()
       // So that the noise is a gaussian centered on 0 of width 1
       //
       // It also help to avoid performing calculations with very small
-      // numbers, which is always a bit risky
+      // numbers, which is always a bit dangerous
         
       // Classic normalisation
       //input[i][0] /= sqrt(n_size);
@@ -315,9 +317,6 @@ void chirpgen::create_function()
         // Whitened
         re /= sqrt(m_psd/2);
         im /= sqrt(m_psd/2);
-        
-        Snfr->push_back(re);
-        Snfi->push_back(im);
     
         // Fill this as input for the inverse FFT
         // Compute the whitened signal in temporal domain
@@ -333,15 +332,34 @@ void chirpgen::create_function()
         SNRmax+=(re*re+im*im);
     }
     
+    SNRmax=sqrt(2*SNRmax); // Final norm factor
+    std::cout<< "SNRmax compute in the frequency range [15,1000]: " << SNRmax << std::endl;
+    std::cout<< "Whitened signal with this value will have an SNR of 1 " << std::endl;
+    
+    for (int i=0; i<=T->size()/2-1; i++)
+    {
+        // Non-whitened FFT
+        re = output[i][0]*scaling/sqrt(T->size());
+        im = output[i][1]*scaling/sqrt(T->size());
+        
+        // Whitened
+        re /= sqrt(m_psd/2);
+        im /= sqrt(m_psd/2);
+        
+        // Normalized
+        re /= SNRmax;
+        im /= SNRmax;
+        
+        Snfr->push_back(re);
+        Snfi->push_back(im);
+    }
+    
     for (int i = T->size()/2; i<T->size(); i++)
     {
         input[i][0] = 0;
         input[i][1] = 0.;
     }
     
-    SNRmax=sqrt(2*SNRmax); // Final norm factor
-    std::cout<< "SNRmax compute in the frequency range [15,1000]: " << SNRmax << std::endl;
-    std::cout<< "Whitened signal with this value will have an SNR of 1 " << std::endl;
     
     // Do the inverse TF of the whitened signal
         

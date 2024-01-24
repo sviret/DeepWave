@@ -34,7 +34,7 @@
 
 //
 // Plot rho(t) for template Ma=m1 / Mb=m2
-//
+// Question 2.4.3
 
 
 void plot_Rho(std::string filename, int m1, int m2)
@@ -56,7 +56,7 @@ void plot_Rho(std::string filename, int m1, int m2)
     
   // Get the number of comparisons
   int Nt = Res->GetEntries();
-  std::cout << "The bank contains " << Nt << " filtered signals" << std::endl;
+  std::cout << "The result file contains " << Nt << " filtered signals" << std::endl;
   TGraph* t_vs_c;
 
   for (int i=0;i<Nt;++i)
@@ -90,13 +90,12 @@ void plot_Rho(std::string filename, int m1, int m2)
   t_vs_c->Draw("AL");
 
   c1->Update();
-    //c1->SaveAs("Chirp.png");
 }
 
 
 //
 // Get all the signals which are passing the S/N threshold given by cut
-//
+// Question 2.4.4
 
 void get_signals(std::string filename, double cut)
 {
@@ -117,10 +116,6 @@ void get_signals(std::string filename, double cut)
     
   // Get the number of comparisons
   int Nt = Res->GetEntries();
-  std::cout << "The bank contains " << Nt << " filtered signals" << std::endl;
-
-  
-    
     
   for (int i=0;i<Nt;++i)
   {
@@ -142,7 +137,7 @@ void get_signals(std::string filename, double cut)
 
 //
 // Plot a map showing the max SNR measured for all templates elements
-//
+// Question 2.4.4
 
 void get_peaks(std::string filename)
 {
@@ -167,11 +162,12 @@ void get_peaks(std::string filename)
     
   // Get the number of comparisons
   int Nt = Res->GetEntries();
-  std::cout << "The bank contains " << Nt << " filtered signals" << std::endl;
+
   int npts=0;
   for (int i=0;i<Nt;++i)
   {
      Res->GetEntry(i);
+
      if (m_a==m_b)
      {
       Chirp->SetPoint(npts,m_a,m_b,max);
@@ -194,7 +190,7 @@ void get_peaks(std::string filename)
   TH2D* h2 = new TH2D();
   h2 = Chirp2->GetHistogram();
     
-  TCanvas *c1 = new TCanvas("c1","Peaks",200,200,600,600);
+  TCanvas *c1 = new TCanvas("c1","Max SNR",200,200,600,600);
   c1->SetFillColor(0);
   c1->SetGridx();
   c1->SetGridy();
@@ -213,7 +209,7 @@ void get_peaks(std::string filename)
 
   c1->Update();
     
-    TCanvas *c2 = new TCanvas("c2","Peaks",200,200,600,600);
+    TCanvas *c2 = new TCanvas("c2","Mchirps",200,200,600,600);
     c2->SetFillColor(0);
     c2->SetGridx();
     c2->SetGridy();
@@ -233,90 +229,3 @@ void get_peaks(std::string filename)
     c2->Update();
 }
 
-
-
-//
-// Plot rho_vs_t for all data
-//
-
-
-void plot_Rho_t(std::string filename, double dt)
-{
-  // First of all one has to retrieve all the data
-    
-  TChain *Res = new TChain("Filtreinfo");
-  Res->Add(filename.c_str());
-
-  std::vector<double> *rho = new std::vector<double>;
-  std::vector<double> *temp= new std::vector<double>;
-  double m_c;
-    
-  TGraph2D *Chirp = new TGraph2D();
-  Chirp->SetTitle("SNR vs time");
-  
-  Res->SetBranchAddress("m_chirp",&m_c);
-  Res->SetBranchAddress("Hfin",&rho);
-  Res->SetBranchAddress("Tfin",&temp);
-    
-  // Get the number of comparisons
-  int Nt = Res->GetEntries();
-  std::cout << "The bank contains " << Nt << " filtered signals" << std::endl;
-  int npts=0;
-  int length;
-  double time;
-    
-  for (int i=0;i<Nt;++i)
-  {
-     Res->GetEntry(i);
-     // Fill the histogram
-     length = static_cast<int>(rho->size());
-     int start=0;
-     int nelem=0;
-     double val=0;
-      
-     for (int j=0;j<length;++j)
-     {
-         time=temp->at(j);
-         if (int(time/dt)==start)
-         {
-             nelem++;
-             val+=rho->at(j);
-         }
-         else
-         {
-             Chirp->SetPoint(npts,time,m_c,val/nelem);
-             npts++;
-             start++;
-             val=0;
-             nelem=0;
-         }
-     }
-  }
-        
-  std::cout << "Do some plots" << std::endl;
-  gStyle->SetOptStat(0);
-  gStyle->SetOptTitle(0);
-    
-  TH2D* h = new TH2D();
-  h = Chirp->GetHistogram();
-        
-  TCanvas *c1 = new TCanvas("c1","Peaks",200,200,600,600);
-    c1->SetFillColor(0);
-    c1->SetGridx();
-    c1->SetGridy();
-    c1->SetBorderSize(2);
-    c1->SetLeftMargin(0.08);
-    c1->SetFrameBorderMode(0);
-    c1->SetFrameBorderMode(0);
-
-    //t_vs_c->GetXaxis()->SetLabelSize(0.03);
-    h->GetXaxis()->SetTitle("Time (in s)");
-    h->GetYaxis()->SetTitle("Mass chirp (in solar masses)");
-    //t_vs_c->SetMarkerStyle(20);
-    h->SetContour(99);
-    gStyle->SetPalette(kRainBow);
-    h->Draw("cont4z");
-
-    c1->Update();
-        
-}
