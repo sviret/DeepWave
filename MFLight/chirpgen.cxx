@@ -200,7 +200,23 @@ void chirpgen::create_function()
        
        */
         
-        
+        input[i][0] = 0.; // Dummy value
+        input[i][1] = input[i][0];
+
+          
+        // We normalize the noise (whitening)
+        // So that the noise is a gaussian centered on 0 of width 1
+        //
+        // It also help to avoid performing calculations with very small
+        // numbers, which is always a bit dangerous
+          
+        // Classic normalisation
+        //input[i][0] /= sqrt(n_size);
+        //input[i][1] /= sqrt(n_size);
+          
+        // Whitening
+        input[i][0] /= sqrt(m_psd/2);
+        input[i][1] /= sqrt(m_psd/2);
     }
     
     // We don't enter the negative frequency coefficients (single-sided FFT), so
@@ -293,9 +309,6 @@ void chirpgen::create_function()
         // Whitened
         re /= sqrt(m_psd/2);
         im /= sqrt(m_psd/2);
-        
-        Snfr->push_back(re);
-        Snfi->push_back(im);
     
         // Fill this as input for the inverse FFT
         // Compute the whitened signal in temporal domain
@@ -311,15 +324,34 @@ void chirpgen::create_function()
         SNRmax+=(re*re+im*im);
     }
     
+    SNRmax=sqrt(2*SNRmax); // Final norm factor
+    std::cout<< "SNRmax compute in the frequency range [15,1000]: " << SNRmax << std::endl;
+    std::cout<< "Whitened signal with this value will have an SNR of 1 " << std::endl;
+    
+    for (int i=0; i<=T->size()/2-1; i++)
+    {
+        // Non-whitened FFT
+        re = output[i][0]*scaling/sqrt(T->size());
+        im = output[i][1]*scaling/sqrt(T->size());
+        
+        // Whitened
+        re /= sqrt(m_psd/2);
+        im /= sqrt(m_psd/2);
+        
+        // Normalized
+        re /= SNRmax;
+        im /= SNRmax;
+        
+        Snfr->push_back(re);
+        Snfi->push_back(im);
+    }
+        
     for (int i = T->size()/2; i<T->size(); i++)
     {
         input[i][0] = 0;
         input[i][1] = 0.;
     }
     
-    SNRmax=sqrt(2*SNRmax); // Final norm factor
-    std::cout<< "SNRmax compute in the frequency range [15,1000]: " << SNRmax << std::endl;
-    std::cout<< "Whitened signal with this value will have an SNR of 1 " << std::endl;
     
     // Do the inverse TF of the whitened signal
         

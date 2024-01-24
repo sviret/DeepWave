@@ -203,7 +203,7 @@ void filtregen::do_MF()
       // Complete this part
       Htfr->at(i)=0.;
       Htfi->at(i)=0.;
-               
+        
       input[i][0]= Htfr->at(i);
       input[i][1]= Htfi->at(i);
     }
