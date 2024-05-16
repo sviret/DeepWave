@@ -1,0 +1,10 @@
+Ttot,10.
+fe,1024
+kindPSD,analytic,
+mint,10.,285.5
+tcint,0.98,0.99
+NbB,1,
+kindTemplate,EOB,
+kindBank,optimal,
+step,1.,
+whitening,0,
