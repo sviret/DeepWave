@@ -678,7 +678,7 @@ def main():
 
     if args.kindPSD=='realistic':
 
-        f=open('PSDs_1369200000_50000_new.p', mode='rb')
+        f=open('data/PSDs_1369200000_50000_new.p', mode='rb')
         #f=open('PSDs_1369200000_50000.p', mode='rb')
         #f=open('PSDs_1369200000_100.p', mode='rb')
         storeL,storeH=pickle.load(f)

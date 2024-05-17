@@ -201,21 +201,22 @@ class GenTemplate:
         if self.__type==0:
             
             # The signal starting at frequency fDmin (~Tchirp)
-            hp,hq = get_td_waveform(approximant='SEOBNRv4_opt', mass1=self.__m1/Msol,mass2=self.__m2/Msol,delta_t=self.__delta_t,f_lower=self.__fDmin)
+            hp,hq = get_td_waveform(approximant='IMRPhenomTPHM', mass1=self.__m1/Msol,mass2=self.__m2/Msol,delta_t=self.__delta_t,f_lower=self.__fDmin)
 
             # The signal starting at frequency fDmind (~Tchirpd)
-            hpd,hqd = get_td_waveform(approximant='SEOBNRv4_opt', mass1=self.__m1/Msol,mass2=self.__m2/Msol,delta_t=self.__delta_t,f_lower=self.__fDmind)
+            hpd,hqd = get_td_waveform(approximant='IMRPhenomTPHM', mass1=self.__m1/Msol,mass2=self.__m2/Msol,delta_t=self.__delta_t,f_lower=self.__fDmind)
 
+            limit=0.01*npy.max(npy.abs(npy.asarray(hp))) # Look for 99% amplitude drop after coalescence
             # Remove 0's at the end
             c1=0
             for c1 in range(len(hp)-1,-1,-1): # Don't consider 0 at the end
-                if abs(hp.numpy()[c1])>1e-35:
+                if abs(hp.numpy()[c1])>limit:
                     break
             hp_tab=hp.numpy()[:c1]
-            
+            #print(c1,limit)
             c1=0
             for c1 in range(len(hpd)-1,-1,-1): # Don't consider 0 at the end
-                if abs(hpd.numpy()[c1])>1e-35:
+                if abs(hpd.numpy()[c1])>limit:
                     break
             hp_tabd=hpd.numpy()[:c1]
 
@@ -288,13 +289,14 @@ class GenTemplate:
         elif self.__kindTemplate=='EOB':
                 
             # The signal starting at frequency fDmin
-            hp,hq = get_td_waveform(approximant='SEOBNRv4_opt', mass1=self.__m1/Msol,mass2=self.__m2/Msol,delta_t=self.__delta_t,f_lower=self.__fDmin)
-            #hp,hq1 = get_td_waveform(coa_phase=npy.pi/4,approximant='SEOBNRv4_opt', mass1=self.__m1/Msol,mass2=self.__m2/Msol,delta_t=self.__delta_t,f_lower=self.__fDmin)
+            hp,hq = get_td_waveform(approximant='IMRPhenomTPHM', mass1=self.__m1/Msol,mass2=self.__m2/Msol,delta_t=self.__delta_t,f_lower=self.__fDmin)
+            #hp,hq = get_td_waveform(coa_phase=npy.pi/4,approximant='SEOBNRv4_opt', mass1=self.__m1/Msol,mass2=self.__m2/Msol,delta_t=self.__delta_t,f_lower=self.__fDmin)
+            #hp,hq = get_td_waveform(approximant='SEOBNRv4_opt', mass1=self.__m1/Msol,mass2=self.__m2/Msol,delta_t=self.__delta_t,f_lower=self.__fDmin)
             f = utils.frequency_from_polarizations(hp, hq)
-
+            limit=0.01*npy.max(npy.abs(npy.asarray(hp)))
             c1=0
             for c1 in range(len(hp)-1,-1,-1): # Don't consider 0 at the end
-                if abs(hp.numpy()[c1])>1e-35:
+                if abs(hp.numpy()[c1])>limit:
                     break
             hp_tab=hp.numpy()[:c1]
             hq_tab=hq.numpy()[:c1]
@@ -410,14 +412,24 @@ class GenTemplate:
             fmax=-1
             fmin=10000
             idx=0
+            fprec=-1
             for f in freqsEOB:
+                if fprec==-1:
+                    fprec=f
+                else:
+                    if fprec>f:
+                        break
+                    fprec=f
+
                 if f>fmax:
                     fmax=f
                     ifmaxe=idx
-                if f<fmin:
+                if f<fmin and f>0:
                     fmin=f
                     ifmine=idx
                 idx+=1
+
+            #print("Into rhoopt",freqsEOB,fmin,fmax,ifmine,ifmaxe)
 
             self._evolSnrTime=self.__T[ifmine:ifmaxe]
             self._evolSnrFreq=freqsEOB[ifmine:ifmaxe]
@@ -465,10 +477,12 @@ class GenTemplate:
         tstart=self.__Ttot-self.__Tsample
         
         # When do we enter into the different data chunk ?
+        #print(self.__nTsample)
         for j in range(self.__nTsample-1,-1,-1):
             tend=tstart+self.__listTsample[j]
             k=0
             found=False
+            #print(tend,len(self._evolSnrTime))
             if (self._evolSnrTime[0]>tend):
                 idx_samp.append(-1)
                 tstart=tend
@@ -500,17 +514,19 @@ class GenTemplate:
         
         if self.__kindTemplate=='EOB':
             Snr_EOB=[]
+            #print(len(self._evolSnrTime),len(self._evolSnr))
             for j in range(len(self._evolSnrTime)):
             
                 if self._evolSnrFreq[j]<self.__fDmind:
                     Snr_EOB.append(0)
                     continue
                 idxfreq=int((self._evolSnrFreq[j]-self.__fDmind)/self.__delta_f)
-                if idxfreq!=0:
+                if idxfreq!=0 and idxfreq<len(self._Snr_vs_freq):
                     Snr_EOB.append(self._Snr_vs_freq[idxfreq])
                 else:
                     Snr_EOB.append(0)
             self._Snr_vs_freq=npy.asarray(Snr_EOB)
+            #print(len(Snr_EOB))
 
         for j in range(self.__nTsample):
         
@@ -536,7 +552,7 @@ class GenTemplate:
             for k in self._evolSnrFreq:
                 idxfreq=int((k-self.__fDmind)/self.__delta_f)
                 snrprop=1.1
-                if (idxfreq>=0):
+                if (idxfreq>=0 and idxfreq<len(self._Snr_vs_freq_base)):
                     snrprop=self._Snr_vs_freq_base[idxfreq]
             
                 if snrprop<=vals[j]:

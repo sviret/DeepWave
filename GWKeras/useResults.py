@@ -243,9 +243,8 @@ class Printer:
             
     def plotDistrib(self,result,epoch,FAR=0.005):
         self.__nbDist+=1
-        distsig=result.testOut[epoch][:result.NsampleTest//2].T[1]
-        distnoise=result.testOut[epoch][-result.NsampleTest//2:].T[1]
-            
+        distsig=result.testOut[epoch][:result.NsampleTest//2].T[1].numpy()
+        distnoise=result.testOut[epoch][-result.NsampleTest//2:].T[1].numpy()
         seuil=result.Threshold(epoch,FAR)[1] # Threshold for FAP on test sample
         #print(epoch,seuil)
         plt.figure('Distribution_epoch'+str(epoch)+'-'+str(self.__nbDist))
@@ -253,16 +252,16 @@ class Printer:
         plt.hist(distnoise,bins=np.arange(101)/100,label='noise distrib')
         plt.hist(distsig,bins=np.arange(101)/100,label='sig distrib')
         plt.text(seuil-0.1,100,'seuil='+str(np.around(seuil,3)))
-            
         plt.xlabel('Probability')
         plt.ylabel('Number')
         plt.yscale('log')
         plt.title(label='Sortie du reseau sur le testSet à SNR='+ str(result.SNRtest)+ ' à l\'epoque '+str(epoch))
         plt.legend()
+        print("here")
             
     def plotMapDistrib(self,result,epoch,granularity=1):
         self.__nbMapDist+=1
-        distsig=result.testOut[epoch][:result.NsampleTest//2].T[1]
+        distsig=result.testOut[epoch][:result.NsampleTest//2].T[1].numpy()
         mlow=int(np.floor(result.mInt[0]))
         mhigh=int(np.ceil(result.mInt[1]))
         mstep=result.mStep
@@ -538,16 +537,15 @@ def main():
     
     args = parse_cmd_line()
 
-
     NbTraining=len(args.resultats)
     #récupération des fichiers résultats
     results=[]
     for i in range(NbTraining):
         results.append(ur.Results.readResults(args.resultats[i]))
-        
+
     #définition du Printer
     printer=ur.Printer()
-    
+
     parameters = {'font.size': 25,'axes.labelsize': 25,'axes.titlesize': 25,'figure.titlesize': 30,'xtick.labelsize': 25,'ytick.labelsize': 25,'legend.fontsize': 25,'legend.title_fontsize': 25,'lines.linewidth' : 3,'lines.markersize' : 10, 'figure.figsize' : [6.4*3.5,4.8*3.5]}
     #mpl.rcParams.update(parameters)
     mpl.rcParams['lines.linewidth'] = 3
@@ -558,13 +556,13 @@ def main():
         
     if NbTraining==1:
         for i in range(nrecorded):
+            print(i)
             printer.plotDistrib(results[0],i,FAR=args.FAR)
             printer.plotMapDistrib(results[0],i,granularity=args.g)
-    
+
     printer.plotROC(results,FAR=args.FAR)
     printer.plotSensitivity(results,FAR=args.FAR)
     printer.plotMultiSensitivity(results)
-    
     
     # Sauvegarde des figures
     cheminsave='./prints/'
