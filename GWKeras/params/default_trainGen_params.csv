@@ -2,7 +2,7 @@ Ttot,1.
 fe,2048
 kindPSD,analytic,
 mint,15.,75.
-tcint,0.6,0.95
+tcint,0.95,0.99
 NbB,10,
 kindTemplate,EOB,
 kindBank,linear,

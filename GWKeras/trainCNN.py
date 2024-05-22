@@ -92,16 +92,17 @@ class Multiple_CNN():
             for i in range(self.nb_inputs):
                 input=layers.Input(shape=(int(self.list_chunks[i]),1))
                 x=layers.BatchNormalization()(input)
-                x=layers.Conv1D(filters=4, kernel_size=8, kernel_initializer=initializer)(x)
-                x=layers.MaxPool1D(pool_size=3)(x)
+                x=layers.Conv1D(filters=16, kernel_size=8, kernel_initializer=initializer)(x)
+                x=layers.MaxPool1D(pool_size=4)(x)
                 x=layers.Activation(activation='relu')(x)
-                x=layers.Conv1D(filters=8, kernel_size=16, kernel_initializer=initializer)(x)
-                x=layers.MaxPool1D(pool_size=3)(x)
+                x=layers.Conv1D(filters=16, kernel_size=4, kernel_initializer=initializer)(x)
+                x=layers.MaxPool1D(pool_size=4)(x)
                 x=layers.Activation(activation='relu')(x)
-                x=layers.Conv1D(filters=16, kernel_size=32, kernel_initializer=initializer)(x)
-                x=layers.MaxPool1D(pool_size=3)(x)
+                x=layers.Conv1D(filters=32, kernel_size=2, kernel_initializer=initializer)(x)
+                x=layers.MaxPool1D(pool_size=4)(x)
                 x=layers.Activation(activation='relu')(x)
                 x=layers.Flatten()(x)
+                x=layers.Dense(32, activation='relu', kernel_initializer=initializer)(x)
                 x=layers.Dense(16, activation='relu', kernel_initializer=initializer)(x)
                 output=layers.Dense(2, kernel_initializer=initializer)(x)
                 
@@ -123,7 +124,7 @@ class Multiple_CNN():
         if not self.singleBand: # merge the bands if > 1
             self.out = layers.Dense(2, kernel_initializer=initializer)(x)
         else:
-            self.out = x
+            self.out = self.outputs
         self.model = models.Model(self.inputs, self.out)
         
         # Init the model
@@ -256,15 +257,22 @@ class MyTrainer():
         self.__testGenerator=None
         self.__cTestSet=None
 
+    # Here we save the network info
+
     def saveNet(self, dossier):
         if not(os.path.isdir(dossier)):
             raise FileNotFoundError("Le dossier de sauvegarde n'existe pas")
         fichier=dossier+self.__kindTraining+'-'+str(self.__lr)+'-net-1.h5'
+        fichier_js=dossier+self.__kindTraining+'-'+str(self.__lr)+'-net-1_fullnet.p'
         c=1
         while os.path.isfile(fichier):
             c+=1
             fichier=dossier+self.__kindTraining+'-'+str(self.__lr)+'-net-'+str(c)+'.h5'
-        self.__net.model.save_weights(fichier)
+            fichier_js=dossier+self.__kindTraining+'-'+str(self.__lr)+'-net-'+str(c)+'_fullnet.p'
+        self.__net.model.save(fichier)
+        f=open(fichier_js, mode='wb')
+        pickle.dump(self.__net,f)
+        f.close()
         self.__net=None
         
     '''

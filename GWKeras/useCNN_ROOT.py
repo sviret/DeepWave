@@ -43,15 +43,16 @@ The main testing macro starts here
 
 def main():
 
-    import trainCNN   as tr
+    #import trainCNN   as tr
     import gendata    as gd   # To process the input data frame
     
     # 1. Start by parsing the input options
     args = parse_cmd_line()
                 
     # 2. Then retrieve the network and initialize it
-    net=tr.Multiple_CNN(paramsfile=args.paramfile)
-    net.model.load_weights(args.network)
+    f=open(args.network,mode='rb')
+    net=pickle.load(f)
+    f.close()
 
     npts=net.getNetSize()      # Number of points fed to the network for each block
     step=int(net.getStepSize())# Step between two blocks
@@ -284,7 +285,7 @@ def main():
             # Look if this value can belong to a cluster
             #
             missflag=0
-            if (netres>0.98): # Interesting value, does it belong to a cluster
+            if (netres>0.99): # Interesting value, does it belong to a cluster
                 if nclust==0: # No cluster yet, create one
                     highSigs.append([i])
                 else:         # Clusters exist, check is we are in or not
@@ -325,6 +326,8 @@ def main():
             highSigs.pop()
 
 
+
+
         # Now determine the cluster coordinates
         #
         # Center, average network output value, sigma of this average
@@ -333,6 +336,7 @@ def main():
         clust_vals=[]   # Cluster properties
     
         for clust in highSigs:
+
             clust_truth.append(-1)
         
             clust_val=0
@@ -351,7 +355,7 @@ def main():
                 clust_sd+=(res-clust_val)*(res-clust_val)
             
             clust_sd=npy.sqrt(clust_sd/len(clust))
-            clust_vals.append([clust_val,clust_cen,(clust_cen*step+nptsHF)*(1/fs),clust_sd])
+            clust_vals.append([clust_val,clust_cen,(clust_cen*step+nptsHF)*(1/fs),clust_sd,len(clust)])
 
 
         # Now establish the correspondence between clusters and injection
@@ -439,15 +443,33 @@ def main():
     
     # End of loop over detectors
     
-    '''
+    clus_h=highSigs_overall[0]
+    clus_l=highSigs_overall[2]
+    
+    for clus in clus_h:
+        
+        if clus[4]<7: 
+            continue
+
+        time=clus[2]
+        for cll in clus_l:
+            if cll[4]<7: 
+                continue
+
+            if npy.abs(cll[2]-time)<1:
+                print("Coinc",time)
+                break
+
+
     for vec in highSigs_overall:
-        print("New det")
-        for clus in vec:
-            print(clus)
-    '''
+        print(len(vec))
+        #for clus in vec:
+        #    print(clus)
+
 
     for inj in injections:
-        print(inj)
+        if inj[4]==0 or inj[6]==0:
+            print(inj)
     
     for i in range(len(output_L)):
         

@@ -37,15 +37,16 @@ The main training macro starts here
 '''
 
 def main():
-    import trainCNN   as tr
+    #import trainCNN   as tr
     import gendata    as gd
     
     # 1. Start by parsing the input options
     args = parse_cmd_line()
                 
     # 2. Then retrieve the network and initialize it
-    net=tr.Multiple_CNN(paramsfile=args.paramfile)
-    net.model.load_weights(args.network)
+    f=open(args.network,mode='rb')
+    net=pickle.load(f)
+    f.close()
 
     npts=net.getNetSize()      # Number of points fed to the network for each block
     step=int(net.getStepSize())# Step between two blocks
@@ -118,14 +119,15 @@ def main():
             #print(cut_bottom,cut_top,)
         
         res = usoftmax_f(net.model.predict(list_inputs_val,verbose=0))
-        
+        #print((i*step+nptsHF)*(1/fs),net.model.predict(list_inputs_val,verbose=0))
         output.append(res.T[1])
-        if (res.T[1]>0.999):
+        if (res.T[1]>0.99):
             output_S.append(res.T[1])
             print("Potential signal at t=",(i*step+nptsHF)*(1/fs),res.T[1])
         else:
             output_S.append(0)
         
+    print(net.model.summary())
     finalres=npy.array(output)
     finalres_S=npy.array(output_S)
     

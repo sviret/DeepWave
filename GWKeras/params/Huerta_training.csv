@@ -1,0 +1,8 @@
+batch_size,250
+lr,0.0015
+kindTraining,Int
+tabEpochs,2,5,20,40
+tabSNR,36,16,24,10,16,8,10,5
+weightingTrain,special
+weightingTest,special
+trainingParams,./params/trainGen_Huerta_params.csv

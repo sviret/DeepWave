@@ -128,8 +128,8 @@ class GenDataSet:
             
             for i in range(ninj):
 
-                m1=npy.random.uniform(10,75)
-                m2=npy.random.uniform(10,75)
+                m1=npy.random.uniform(5,75)
+                m2=npy.random.uniform(5,75)
                 SNR=npy.random.uniform(3,20)
                 self.__TGenerator.majParams(m1,m2)
 

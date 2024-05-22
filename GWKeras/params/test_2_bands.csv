@@ -1,9 +1,9 @@
 Ttot,1.,2.
 fe,2048,1024
-kindPSD,analytic,
-mint,35.5,75.5
-tcint,0.75,0.95
-NbB,1,
+kindPSD,realistic,
+mint,10.5,75.5
+tcint,0.95,0.99
+NbB,2,
 kindTemplate,EOB,
 kindBank,linear,
 step,1.,

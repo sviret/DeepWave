@@ -257,7 +257,7 @@ class Printer:
         plt.yscale('log')
         plt.title(label='Sortie du reseau sur le testSet à SNR='+ str(result.SNRtest)+ ' à l\'epoque '+str(epoch))
         plt.legend()
-        print("here")
+        #print("here")
             
     def plotMapDistrib(self,result,epoch,granularity=1):
         self.__nbMapDist+=1
@@ -556,7 +556,7 @@ def main():
         
     if NbTraining==1:
         for i in range(nrecorded):
-            print(i)
+            #print(i)
             printer.plotDistrib(results[0],i,FAR=args.FAR)
             printer.plotMapDistrib(results[0],i,granularity=args.g)
 
