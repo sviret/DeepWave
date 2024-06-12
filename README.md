@@ -2,7 +2,11 @@
 
 ## MFlight
 
-## DGWS
+## GWKeras (Tensorflow implementation of the DGWS repo, without the D2L dependancy)
+
+Info available on this page: (https://sviret.web.cern.ch/Welcome.php?n=Virgo.MML)
+
+## DGWS (obsolete)
   
 ### Installation
     
