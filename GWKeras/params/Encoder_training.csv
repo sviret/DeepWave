@@ -1,0 +1,9 @@
+batch_size,150
+lr,0.001
+kindTraining,Int
+tabEpochs,10,20,40
+tabSNR,34,8,34,8,34,8
+weightingTrain,special
+weightingTest,special
+trainingParams,./params/trainGen_Encoder_params.csv
+training_size,500

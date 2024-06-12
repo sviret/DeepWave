@@ -10,35 +10,33 @@ import pickle
 import csv
 import warnings
 
+import tensorflow.experimental.numpy as tnp
+from tensorflow.python.ops.numpy_ops import np_config
+np_config.enable_numpy_behavior()
+np.set_printoptions(threshold=np.inf)
 
 '''
 Class defining the network
 
 '''
 
-class Multiple_CNN():
+class CNN_LSTM():
 
     '''
-    Initialization: here we define the neural net
-    
-    Basically we set up one net for each frequency band, this net is the standard CNN as defined in the seminal
-    paper from Huerta and George
-    
-    https://arxiv.org/abs/1711.03121
-    
-    This initialization requires the param file which was used for the training
-    This is needed to retrieve the number of bands
+    Initialization: here we define the CNN LSTM encoder
     
     '''
     
-    def __init__(self, paramsfile='./params/default_trainGen_params.csv',lr=3e-3,wht='special',**kwargs):
+    def __init__(self, paramsfile='./params/default_trainGen_params.csv',lr=3e-3,**kwargs):
 
         self.list_chunks = []
         self.net = []
         weight = []
         initializer = initializers.GlorotNormal() # Xavier initialization
         opt = optimizers.Adam(learning_rate=lr)
-        self.__npts = 0
+        self.__npts = 0 
+        
+        #custom_loss = custom_loss_function(d)
 
         with open(paramsfile) as mon_fichier:
               mon_fichier_reader = csv.reader(mon_fichier, delimiter=',')
@@ -70,94 +68,38 @@ class Multiple_CNN():
             self.__npts+=int(float(lignes[0][x])*float(lignes[1][x]))
             
         
-        self.singleBand=False
-        if self.nb_inputs==1:
-            self.singleBand=True
-            weight.append(1.)
-        else:
-            for i in range(self.nb_inputs):
-                if wht=='balance':
-                    weight.append(1./self.nb_inputs)
-                else:
-                    weight.append(0.)
-        weight=np.asarray(weight)
-        if wht=='special':
-            weight[0]=1.
+        self.__units = 50 # Number of neurons (100 in the paper)
+        mode='concat'
+        size=self.__npts
+        self.__feature=4
+
             
         # Define the networks (one per band)
         self.inputs=[]
         self.outputs=[]
 
-        with tf.name_scope('simpleCNN') as scope:
-            for i in range(self.nb_inputs):
-                input=layers.Input(shape=(int(self.list_chunks[i]),1))
-                x=layers.BatchNormalization()(input)
-                x=layers.Conv1D(filters=4, kernel_size=8, kernel_initializer=initializer)(x)
-                x=layers.MaxPool1D(pool_size=4)(x)
-                x=layers.Activation(activation='relu')(x)
-                x=layers.Conv1D(filters=8, kernel_size=2, kernel_initializer=initializer)(x)
-                x=layers.MaxPool1D(pool_size=4)(x)
-                x=layers.Activation(activation='relu')(x)
-                x=layers.Conv1D(filters=16, kernel_size=2, kernel_initializer=initializer)(x)
-                x=layers.MaxPool1D(pool_size=4)(x)
-                x=layers.Activation(activation='relu')(x)
-                x=layers.Conv1D(filters=8, kernel_size=8, kernel_initializer=initializer)(x)
-                '''
-                x=layers.Conv1D(filters=10, kernel_size=8, kernel_initializer=initializer)(x)
-                x=layers.MaxPool1D(pool_size=4)(x)
-                x=layers.Activation(activation='relu')(x)
-                x=layers.Conv1D(filters=12, kernel_size=2, kernel_initializer=initializer)(x)
-                x=layers.MaxPool1D(pool_size=4)(x)
-                x=layers.Activation(activation='relu')(x)
-                x=layers.Conv1D(filters=8, kernel_size=2, kernel_initializer=initializer)(x)
-                x=layers.MaxPool1D(pool_size=4)(x)
-                x=layers.Activation(activation='relu')(x)
-                x=layers.Conv1D(filters=8, kernel_size=8, kernel_initializer=initializer)(x)
-                '''
-                '''
-                x=layers.Conv1D(filters=16, kernel_size=8, kernel_initializer=initializer)(x)
-                x=layers.MaxPool1D(pool_size=4)(x)
-                x=layers.Activation(activation='relu')(x)
-                x=layers.Conv1D(filters=16, kernel_size=2, kernel_initializer=initializer)(x)
-                x=layers.MaxPool1D(pool_size=4)(x)
-                x=layers.Activation(activation='relu')(x)
-                x=layers.Conv1D(filters=16, kernel_size=2, kernel_initializer=initializer)(x)
-                x=layers.MaxPool1D(pool_size=4)(x)
-                x=layers.Activation(activation='relu')(x)
-                x=layers.Conv1D(filters=8, kernel_size=8, kernel_initializer=initializer)(x)
-                '''
-                x=layers.MaxPool1D(pool_size=4)(x)
-                x=layers.Activation(activation='relu')(x)
-                x=layers.Flatten()(x)
-                #x=layers.Dense(16, activation='relu', kernel_initializer=initializer)(x)
-                #x=layers.Dense(8, activation='relu', kernel_initializer=initializer)(x)
-                output=layers.Dense(2, kernel_initializer=initializer)(x)
+        with tf.name_scope('CNN_LSTM') as scope:
+            input=layers.Input(shape=(size,self.__feature,1))
+            #Encoder
+            x=layers.TimeDistributed(layers.Conv1D(filters=32, kernel_size=1, activation='softmax', name='1er_Conv1D'))(input)
+            x=layers.TimeDistributed(layers.MaxPool1D(pool_size=2, strides=2, name='MaxPool1D'))(x)
+            x=layers.TimeDistributed(layers.Conv1D(filters=16, kernel_size=1, activation='softmax', name='2eme_Conv1D'))(x)
+            x=layers.TimeDistributed(layers.Flatten())(x)
+            #Decoder 
+            x=layers.Bidirectional(layers.LSTM(self.__units, return_sequences=True), name='1er_BiLSTM',
+                            merge_mode=mode)(x)
+            x=layers.Bidirectional(layers.LSTM(self.__units, return_sequences=True), name='2eme_BiLSTM', merge_mode=mode)(x)
+            x=layers.Bidirectional(layers.LSTM(self.__units, return_sequences=True), name='3eme_BiLSTM', merge_mode=mode)(x)
+            output=layers.TimeDistributed(layers.Dense(1))(x) #mean_squared_error
                 
-                self.inputs.append(input)
+            self.inputs.append(input)
+            self.outputs.append(output)
 
-                # Don't use the weighting for the moment
-                #self.outputs.append(weight[i]*output)
-                self.outputs.append(output)
-
-        # The last layer is a dense one which takes as input a weighted average of all the networks outputs
-        # The weighting from each layer is defined later.
-
-        # Take note that there is no activation in the last dense layer
-        # softmax activation is included in the loss function (via from_logits option)
-        # enable to use the special activation function defined in https://arxiv.org/abs/2106.03741
-        #
-
-        x = layers.add(self.outputs)
-        if not self.singleBand: # merge the bands if > 1
-            self.out = layers.Dense(2, kernel_initializer=initializer)(x)
-        else:
-            self.out = self.outputs
-        self.model = models.Model(self.inputs, self.out)
+        self.model = models.Model(self.inputs, self.outputs)
         
         # Init the model
-        self.model.compile(optimizer=opt,
-              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-              metrics=['accuracy'])
+        self.loss=custom_loss_function(0)
+        self.model.compile(optimizer=optimizers.Adam(learning_rate=lr),metrics='logcosh',loss=self.loss)
                 
         # Print the network
         print(self.model.summary())
@@ -165,6 +107,9 @@ class Multiple_CNN():
     def getNetSize(self):
         return self.__npts
         
+    def getFeatureSize(self):
+        return self.__feature
+
     def getBlockLength(self):
         return self.__Ttot
     
@@ -184,7 +129,66 @@ class Multiple_CNN():
     def getListTtot(self):
         return self.__listTtot
      
-     
+
+class custom_loss_function:
+    def __init__(self, d):
+        self.d = d
+
+    def __call__(self, y_true, y_pred):
+        #batch_size=100
+        #axis_to_reduce = tuple(range(1, K.ndim(y_pred)))  # All axis but first (batch)
+        res = ave_ft(y_true, y_pred, self.d)
+        mse = tf.reduce_mean(tf.square(y_true - y_pred))
+        #print(rms,res)
+        return mse - res
+    def get_config(self):
+        return {'d': self.d}
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+def f_tanimoto_w(y_true,y_pred,d,ds):
+
+
+    
+    # Default is one
+    class_weights = tf.ones_like(y_true[0], dtype=tf.float32)  # Create weights of 1 for each class
+    if not isinstance(class_weights, tf.Tensor):
+       class_weights = tf.constant(class_weights)
+    
+    if ds<0: # bypass for the moment 
+        # When the network start to converge we put an emphasis on small values
+        wli = tf.math.reciprocal(y_true ** 1)
+        # ---------------------This line is taken from niftyNet package --------------
+        # ref: https://github.com/NifTK/NiftyNet/blob/dev/niftynet/layer/loss_segmentation.py, lines:170 -- 172
+        # First turn inf elements to zero, then replace that with the maximum weight value
+        new_weights = tf.where(tf.math.is_inf(wli), tf.zeros_like(wli), wli)
+        class_weights = tf.where(tf.math.is_inf(wli), tf.ones_like(wli) * tf.reduce_max(new_weights), wli)
+        # --------------------------------------------------------------------
+
+
+    axis_to_reduce = range(1, K.ndim(y_pred))
+    numerator = y_true * y_pred * class_weights
+    numerator = K.sum(numerator, axis=axis_to_reduce)
+
+    denominator1 = (y_true ** 2 + y_pred ** 2) * class_weights
+    denominator1 = K.sum(denominator1, axis=axis_to_reduce) * (2**d)
+    denominator2 = (y_true * y_pred) * class_weights
+    denominator2 = K.sum(denominator2, axis=axis_to_reduce) *((2**(d+1))-1)
+    denominator = denominator1 - denominator2
+    return numerator / denominator
+
+
+def ave_ft(x,y,d=0):
+    dstart=d
+    if d==0:
+        d=1
+    result=0.
+    for i in range(d):
+        result+=f_tanimoto_w(x,y,i,dstart)
+    return result/d
 '''
 Class defining the network training stage
 '''
@@ -196,12 +200,13 @@ class MyTrainer():
     Initialization: parameters here are default values, they are overwritten by the config file
     '''
     
-    def __init__(self,tabSNR=[8],tabEpochs=[10],lr=3e-3,batch_size=250,paramFile=None,
+    def __init__(self,tabSNR=[8],tabEpochs=[10],lr=3e-3,batch_size=250,train_size=1000,paramFile=None,
                 net=None,loss=None,trainer=None,weight='special'):
         
         # 1. Use default info if there is no config file
         if paramFile is None:
             self.__batch_size=batch_size
+            self.__train_size=train_size
             self.__tabSNR=tabSNR
             self.__tabEpochs=[0]+tabEpochs
             self.__lr=lr
@@ -222,9 +227,11 @@ class MyTrainer():
             raise FileNotFoundError("Le fichier de paramètres n'existe pas")
          
         # 2. Retrieve the network and initialize it
-        self.__net=Multiple_CNN(lr=self.__lr,wht=self.weight,paramsfile=self.__ptfile) if net is None else net  # initilisation
+        self.__net=CNN_LSTM(lr=self.__lr,paramsfile=self.__ptfile) if net is None else net  # initilisation
         print("Network initialized")
-        
+        self.__feature=self.__net.getFeatureSize() 
+
+
         # 3. The training parameters are defined next
        
         self.__trainGenerator=None
@@ -232,7 +239,7 @@ class MyTrainer():
         self.__testGenerator=None
         self.__cTestSet=None
     
-        self.__loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+        #self.__loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
         #self.__loss=tf.keras.losses.BinaryCrossentropy(from_logits=True)
     '''
     _readparamfile: parse the training param file
@@ -250,7 +257,8 @@ class MyTrainer():
             raise Exception("Erreur dans le fichier de paramètres")
             # vérification du format du fichier csv (bandeau de gauche)
 
-        self.__ptfile=lignes[7][1] # taille des batchs
+        self.__train_size=lignes[8][1] # training sample size
+        self.__ptfile=lignes[7][1] # training param file
         self.__batch_size=int(lignes[0][1]) # taille des batchs
         self.__lr=float(lignes[1][1]) # learning rate
         self.__tabEpochs=[0] # tableau des époques
@@ -313,42 +321,47 @@ class MyTrainer():
         
         # First we pick data in the training sample and adapt it to the required starting SNR
         self.__trainGenerator=TrainGenerator
-        sample=self.__trainGenerator.getDataSet(self.__tabSNR[0],weight=self.__weight,size=500)
+        sample=self.__trainGenerator.getDataSet(self.__tabSNR[0],weight=self.__weight)
         # Training data at the initial SNR
-        data=np.array(sample[0].reshape(self.__trainGenerator.Nsample,-1,1),dtype=np.float32)
+        print(len(sample[0]))
+        #data=np.array(sample[0].reshape(self.__trainGenerator.Nsample,-1,1),dtype=np.float32)
+        data=np.array(sample[0].reshape(len(sample[0]),-1,1),dtype=np.float32)
+        data=MyTrainer.split_sequence(self, data, self.__feature)
         # Expected outputs
-        labels=np.array(self.__trainGenerator.Labels,dtype=np.int32)
-        # Sharing among frequency bands
-        weight_sharing=np.array(sample[1],dtype=np.float32)
+        pure=np.array(sample[2].reshape(len(sample[0]),-1,1),dtype=np.float32)
+
 
         # The test dataset will always be the same, pick it up once
         self.__testGenerator=TestGenerator
-        sample_t=self.__testGenerator.getDataSet(SNRtest,weight=self.__weight,size=500)
-        data_t=np.array(sample_t[0].reshape(self.__testGenerator.Nsample,-1,1),dtype=np.float32)
-        labels_t=np.array(self.__testGenerator.Labels,dtype=np.int32)
-        weight_sharing_t=np.array(sample_t[1],dtype=np.float32)
-        
+        sample_t=self.__testGenerator.getDataSet(SNRtest)
+        data_t=np.array(sample_t[0].reshape(len(sample_t[0]),-1,1),dtype=np.float32)
+        pure_t=np.array(sample_t[2].reshape(len(sample_t[0]),-1,1),dtype=np.float32)
+        data_t=MyTrainer.split_sequence(self, data_t, self.__feature)
         if verbose:
-            print("Shape of training set",data.shape)
-            print("Shape of validation set",data_t.shape)
+            print("Shape of training set",data.shape,pure.shape)
+            print("Shape of validation set",data_t.shape,pure_t.shape)
                 
         cut_top = 0
         cut_bottom = 0
         list_inputs_val=[]
         list_inputs=[]
+        list_outputs_val=[]
+        list_outputs=[]
         
         for i in range(self.__net.nb_inputs):
             cut_top += int(self.__net.list_chunks[i])
-            list_inputs_val.append(data_t[:,cut_bottom:cut_top,:])
-            list_inputs.append(data[:,cut_bottom:cut_top,:])
+            list_inputs_val.append(data_t[:,cut_bottom:cut_top,:,:])
+            list_inputs.append(data[:,cut_bottom:cut_top,:,:])
+            list_outputs_val.append(pure_t[:,cut_bottom:cut_top,:])
+            list_outputs.append(pure[:,cut_bottom:cut_top,:])
             cut_bottom = cut_top
                               
-        self.__cTrainSet=(list_inputs,labels,weight_sharing)
-        self.__cTestSet=(list_inputs_val,labels_t,weight_sharing_t)
+        self.__cTrainSet=(list_inputs,list_outputs)
+        self.__cTestSet=(list_inputs_val,list_outputs_val)
 
         # Put the init training properties in the results output file
-        results.setMyTrainer(self)
-        results.Fill()
+        results.setMyEncoder(self)
+        #results.FillEncoder()
         epoch=0
         
         # Loop over all the requested SNR, each of them corresponds to a certain
@@ -363,23 +376,37 @@ class MyTrainer():
         for i in range(len(self.__tabSNR)):
             if i>0: # We start a new SNR range, need to update the training set
                 del self.__cTrainSet
+                if i==1:
+                    custom_loss = custom_loss_function(5)
+                    self.__net.model.compile(optimizer=optimizers.Adam(learning_rate=self.__lr/10.),metrics='logcosh',loss=custom_loss)
+                if i==2:
+                    custom_loss = custom_loss_function(10)
+                    self.__net.model.compile(optimizer=optimizers.Adam(learning_rate=self.__lr/100.),metrics=logcosh',loss=custom_loss)
 
                 # Create a dataset with the corresponding SNR
                 # Starting from the initial one at SNR=1
-                sample=self.__trainGenerator.getDataSet(self.__tabSNR[i],weight=self.__weight,size=500)
-                data=np.array(sample[0].reshape(self.__trainGenerator.Nsample,-1,1),dtype=np.float32)
-                weight_sharing=np.array(sample[1],dtype=np.float32)
+                sample=self.__trainGenerator.getDataSet(self.__tabSNR[i],weight=self.__weight)
+                # Training data at the initial SNR
+                data=np.array(sample[0].reshape(len(sample[0]),-1,1),dtype=np.float32)
+
+                data=MyTrainer.split_sequence(self, data, self.__feature)
+                # Expected outputs
+                pure=np.array(sample[2].reshape(len(sample[0]),-1,1),dtype=np.float32)
+
+                #weight_sharing=np.array(sample[1],dtype=np.float32)
                             
                 cut_top = 0
                 cut_bottom = 0
                 list_inputs=[]
-                    
+                list_outputs=[]
+        
                 for j in range(self.__net.nb_inputs):
                     cut_top += int(self.__net.list_chunks[j])
-                    list_inputs.append(data[:,cut_bottom:cut_top,:])
+                    list_inputs.append(data[:,cut_bottom:cut_top,:,:])
+                    list_outputs.append(pure[:,cut_bottom:cut_top,:])
                     cut_bottom = cut_top
-                
-                self.__cTrainSet=(list_inputs,labels,weight_sharing)
+                        
+                self.__cTrainSet=(list_inputs,list_outputs)
                 
                  
             # Then run for the corresponding epochs at this SNR range/value
@@ -388,11 +415,11 @@ class MyTrainer():
             print("Training between epochs",self.__tabEpochs[i],"and",self.__tabEpochs[i+1])
             
             # Run the training over the epochs
-            history=self.__net.model.fit(self.__cTrainSet[0],labels,batch_size=self.__batch_size,epochs=nepochs, validation_data=(list_inputs_val, labels_t))
+            history=self.__net.model.fit(self.__cTrainSet[0],self.__cTrainSet[1],batch_size=self.__batch_size,epochs=nepochs, validation_data=(list_inputs_val, list_outputs_val))
             
-            acc=np.asarray(history.history['accuracy'])
+            acc=np.asarray(history.history['logcosh'])
             los=np.asarray(history.history['loss'])
-            acc_t=np.asarray(history.history['val_accuracy'])
+            acc_t=np.asarray(history.history['val_logcosh'])
             los_t=np.asarray(history.history['val_loss'])
             
             for i in range(nepochs):
@@ -401,8 +428,8 @@ class MyTrainer():
                 accuracy_t.append(acc_t[i])
                 loss_t.append(los_t[i])
 
-            train_acc=np.asarray(history.history['accuracy']).mean()
-            test_acc=np.asarray(history.history['val_accuracy']).mean()
+            train_acc=np.asarray(history.history['logcosh']).mean()
+            test_acc=np.asarray(history.history['val_logcosh']).mean()
             train_l=np.asarray(history.history['loss']).mean()
             test_l=np.asarray(history.history['val_loss']).mean()
 
@@ -411,7 +438,7 @@ class MyTrainer():
                 print(f'Train perf with this SNR range: train loss {train_l:.3f}, train acc {train_acc:.3f}')
                 print(f'Validation perf at this stage: test loss {test_l:.3f}, test acc {test_acc:.3f}')
 
-            results.Fill()
+            #results.FillEncoder()
 
         t_stop=process_time()
 
@@ -420,8 +447,28 @@ class MyTrainer():
         self.__final_loss=np.asarray(loss).flatten()
         self.__final_loss_t=np.asarray(loss_t).flatten()
 
-        results.finishTraining()
+        #results.finishTraining()
     
+    def split_sequence(self, array, n_steps):
+        ## split a univariate sequence into samples
+        # Dimension of input array: [nsample][npts][1]
+        # Dimension of output array: [nsample][npts][n_steps]
+
+        splitted=[]
+        #X, y = list(), list()
+        for data in array:
+            #print(data[0:10])
+            # Zero padding
+            seq = np.concatenate((np.zeros(int(n_steps/2)), data.reshape(-1), np.zeros(int(n_steps/2))))
+            # Splitting
+            ssequence = np.array([np.array(seq[i:i+n_steps]) for i in range(len(seq)-n_steps)])
+            #print(ssequence[0:10])
+            splitted.append(ssequence)
+
+        final=np.asarray(splitted)
+        #print(final.shape)
+        return np.expand_dims(final,axis=-1)
+
     @property
     def trainGenerator(self):
         return self.__trainGenerator
@@ -506,9 +553,9 @@ The main training macro starts here
 '''
 
 def main():
-    import useResults as ur
-    import gendata    as gd
-    import trainCNN   as tr
+    import useResults     as ur
+    import gendata        as gd
+    import trainEncoder   as tr
     
     # Start by parsing the input options
     args = parse_cmd_line()
@@ -538,7 +585,7 @@ def main():
         # Store the results
         mytrainer.saveNet(cheminresults)
         myresults.saveResults(cheminresults)
-
+    
 
 ############################################################################################################################################################################################
 if __name__ == "__main__":

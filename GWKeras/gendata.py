@@ -393,10 +393,12 @@ class GenDataSet:
     Get a dataset from the noise and signal samples
     '''
 
-    def getDataSet(self,SNRopt=1,weight='auto'):
+    def getDataSet(self,SNRopt=1,weight='auto',size=0):
         nbands=self.__nTtot
         dset=[]
+        pureset=[]
         fdset = []
+        fpureset = []
         finaldset=[]
         
         if weight=='auto':
@@ -414,29 +416,58 @@ class GenDataSet:
 
         for i in range(nbands):
             if (isinstance(SNRopt,tuple)):
-                dset.append((self.__Sig[i].T*randSNR).T+self.__Noise[i]) # Sig=0 in the second half, so this is just noise...
+                temp=(self.__Sig[i].T*randSNR).T
+                dset.append(temp+self.__Noise[i]) # Sig=0 in the second half, so this is just noise...
+                pureset.append(temp) 
             else:
                 dset.append(self.__Sig[i]*(SNRopt)+self.__Noise[i])
+                pureset.append(self.__Sig[i]*(SNRopt))
 
         # Dataset has form ([Nsample][N1],[Nsample][N2],...)
         # Reorganize it as [Nsample][N1+N2]
-        
-
-        for i in range(self.Nsample):
-            tempset=[]
+        ntemp=size   # Can choose the size (can be handy to test quickly new architectures)
+        if ntemp==0:
+            ntemp=int(self.Nsample/2)
+    
+        for i in range(ntemp):
+            tempset=[] # Signal
             for j in range(nbands):
                 sect=npy.asarray(dset[j][i])
                 tempset.append(sect)
             sec=npy.concatenate(tempset)
             finaldset.append(sec)
+            tempset=[] # Noise
+            for j in range(nbands):
+                sect=npy.asarray(dset[j][self.Nsample-1-i])
+                tempset.append(sect)
+            sec=npy.concatenate(tempset)
+            finaldset.append(sec)
         fdset=npy.asarray(finaldset)
-                
-        return fdset, list_weights
+
+        finaldset=[]
+        for i in range(ntemp):
+            tempset=[]
+            for j in range(nbands):
+                sect=npy.asarray(pureset[j][i])
+                tempset.append(sect)
+            sec=npy.concatenate(tempset)
+            finaldset.append(sec)
+            tempset=[]
+            for j in range(nbands):
+                sect=npy.asarray(pureset[j][self.Nsample-1-i])
+                tempset.append(sect)
+            sec=npy.concatenate(tempset)
+            finaldset.append(sec)
+        fpureset=npy.asarray(finaldset)
+          
+        return fdset, list_weights, fpureset
 
     def getFrame(self,weight='auto',det=0):
         nbands=self.__nTtot
         dset=[]
         fdset = []
+        pset=[]
+        fpset = []
         finaldset=[]
         
         if weight=='auto':
@@ -451,12 +482,18 @@ class GenDataSet:
         #dset.append(self.__Sig[0]*(SNRopt)+self.__Noise[0])
         if (det==0):
             dset.append(self.__Noise[0])
+            pset.append(self.__Signal[0])
         else:
             dset.append(self.__Noise[1])
-        
+            pset.append(self.__Signal[0])
+
+
         fdset=npy.asarray(dset[0])
-                
-        return fdset, list_weights
+        fpset=npy.asarray(pset[0])
+
+        print("In getframe",fdset.shape,fpset.shape)
+
+        return fdset, list_weights, fpset
     
     '''
     DATASET 6/
@@ -563,7 +600,7 @@ class GenDataSet:
         # Save the sample in an efficient way
         fname=dossier+self.__choice+'-'+self.__kindPSD+'-'+self.__kindTemplate+'-'+str(self.__length)+'s'+'-data'
         #npy.savez_compressed(fname,self.__Noise[0],self.__Sig[0])
-        npy.savez_compressed(fname,self.__Noise[0],self.__Noise[1])
+        npy.savez_compressed(fname,self.__Noise[0],self.__Noise[1],self.__Signal[0])
         self.__listfnames.append(fname)
         
         # Save the object without the samples (basically just the weights)
@@ -600,6 +637,7 @@ class GenDataSet:
         #obj.__Sig.append(data['arr_1'])
         obj.__Noise.append(data['arr_0'])
         obj.__Noise.append(data['arr_1'])
+        obj.__Signal.append(data['arr_2'])
         data=[] # Release space
         f.close()
         return obj

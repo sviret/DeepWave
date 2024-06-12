@@ -90,6 +90,27 @@ class Results:
         self.__Xtest=self.__cTrainer.cTestSet[0]
         self.__ytest=self.__cTrainer.cTestSet[1] # O for noise and 1 for signal
         self.__Wtest=self.__cTrainer.cTestSet[2]
+    
+    def setMyEncoder(self,mytrainer):
+        self.__cTrainer=mytrainer
+        self.__NsampleTrain=int(self.__cTrainer.trainGenerator.Nsample) # Limit size of the result file
+        self.__NsampleTest=int(self.__cTrainer.testGenerator.Nsample)
+        self.__tsize=self.__NsampleTrain
+        self.__kindTraining=self.__cTrainer.kindTraining
+        self.__batch_size=self.__cTrainer.batch_size
+        self.__lr=self.__cTrainer.lr # Learning rate
+        self.__weight=self.__cTrainer.weight #
+        self.__minSNR=self.__cTrainer.tabSNR[-1] # Last SNR range
+        self.__kindTemplate=self.__cTrainer.trainGenerator.kindTemplate
+        self.__kindBank=self.__cTrainer.trainGenerator.kindBank
+        self.__kindPSD=self.__cTrainer.trainGenerator.kindPSD
+        self.__mInt=self.__cTrainer.testGenerator.mInt
+        self.__step=self.__cTrainer.testGenerator.mStep
+            
+        # Use the complete dataset here
+        self.__Xtest=self.__cTrainer.cTestSet[0]
+        self.__ytest=self.__cTrainer.cTestSet[1] 
+
 
     # Fill the results obtained at the end of one epoch
     def Fill(self):
@@ -104,6 +125,18 @@ class Results:
         #self.__testOut.append(outTest)
         self.__testOut.append(usoftmax_f(outTest))
     
+    def FillEncoder(self):
+        # (0,1,2,....) until the last epoch
+        #self.__listEpochs.append(0) if len(self.__listEpochs)==0 else self.__listEpochs.append(self.__listEpochs[-1]+1)
+        
+        # Get the net output for validation sample only
+        print(self.__Xtest[0].shape)
+        #outTest=self.__cTrainer.net(self.__Xtest,self.__Wtest)
+        outTest = self.__cTrainer.net.model.predict(self.__Xtest,verbose=0)
+                
+        #self.__testOut.append(outTest)
+        self.__testOut.append(outTest)
+
     # Here we do the calculations for the ROC curve
     # this is called at the end
     def finishTraining(self):
