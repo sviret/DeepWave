@@ -381,7 +381,7 @@ class MyTrainer():
                     self.__net.model.compile(optimizer=optimizers.Adam(learning_rate=self.__lr/10.),metrics='logcosh',loss=custom_loss)
                 if i==2:
                     custom_loss = custom_loss_function(10)
-                    self.__net.model.compile(optimizer=optimizers.Adam(learning_rate=self.__lr/100.),metrics=logcosh',loss=custom_loss)
+                    self.__net.model.compile(optimizer=optimizers.Adam(learning_rate=self.__lr/100.),metrics='logcosh',loss=custom_loss)
 
                 # Create a dataset with the corresponding SNR
                 # Starting from the initial one at SNR=1
