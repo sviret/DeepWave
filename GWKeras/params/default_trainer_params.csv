@@ -5,4 +5,4 @@ tabEpochs,2,6,8,10,12
 tabSNR,48,24,36,16,24,10,16,8,10,5
 weightingTrain,special
 weightingTest,special
-trainingParams,./params/trainGen_Huerta_params.csv
+trainingParams,./params/default_trainGen_params.csv
