@@ -92,6 +92,7 @@ class Multiple_CNN():
             for i in range(self.nb_inputs):
                 input=layers.Input(shape=(int(self.list_chunks[i]),1))
                 x=layers.BatchNormalization()(input)
+                '''
                 x=layers.Conv1D(filters=4, kernel_size=8, kernel_initializer=initializer)(x)
                 x=layers.MaxPool1D(pool_size=4)(x)
                 x=layers.Activation(activation='relu')(x)
@@ -103,17 +104,14 @@ class Multiple_CNN():
                 x=layers.Activation(activation='relu')(x)
                 x=layers.Conv1D(filters=8, kernel_size=8, kernel_initializer=initializer)(x)
                 '''
-                x=layers.Conv1D(filters=10, kernel_size=8, kernel_initializer=initializer)(x)
+                # Huerta & Georges legacy
+                x=layers.Conv1D(filters=16, kernel_size=16, kernel_initializer=initializer)(x)
                 x=layers.MaxPool1D(pool_size=4)(x)
                 x=layers.Activation(activation='relu')(x)
-                x=layers.Conv1D(filters=12, kernel_size=2, kernel_initializer=initializer)(x)
+                x=layers.Conv1D(filters=32, kernel_size=8, kernel_initializer=initializer)(x)
                 x=layers.MaxPool1D(pool_size=4)(x)
                 x=layers.Activation(activation='relu')(x)
-                x=layers.Conv1D(filters=8, kernel_size=2, kernel_initializer=initializer)(x)
-                x=layers.MaxPool1D(pool_size=4)(x)
-                x=layers.Activation(activation='relu')(x)
-                x=layers.Conv1D(filters=8, kernel_size=8, kernel_initializer=initializer)(x)
-                '''
+                x=layers.Conv1D(filters=64, kernel_size=8, kernel_initializer=initializer)(x)
                 '''
                 x=layers.Conv1D(filters=16, kernel_size=8, kernel_initializer=initializer)(x)
                 x=layers.MaxPool1D(pool_size=4)(x)
@@ -313,7 +311,7 @@ class MyTrainer():
         
         # First we pick data in the training sample and adapt it to the required starting SNR
         self.__trainGenerator=TrainGenerator
-        sample=self.__trainGenerator.getDataSet(self.__tabSNR[0],weight=self.__weight,size=500)
+        sample=self.__trainGenerator.getDataSet(self.__tabSNR[0],weight=self.__weight,size=0)
         # Training data at the initial SNR
         data=np.array(sample[0].reshape(self.__trainGenerator.Nsample,-1,1),dtype=np.float32)
         # Expected outputs
@@ -323,7 +321,7 @@ class MyTrainer():
 
         # The test dataset will always be the same, pick it up once
         self.__testGenerator=TestGenerator
-        sample_t=self.__testGenerator.getDataSet(SNRtest,weight=self.__weight,size=500)
+        sample_t=self.__testGenerator.getDataSet(SNRtest,weight=self.__weight,size=0)
         data_t=np.array(sample_t[0].reshape(self.__testGenerator.Nsample,-1,1),dtype=np.float32)
         labels_t=np.array(self.__testGenerator.Labels,dtype=np.int32)
         weight_sharing_t=np.array(sample_t[1],dtype=np.float32)
@@ -366,7 +364,7 @@ class MyTrainer():
 
                 # Create a dataset with the corresponding SNR
                 # Starting from the initial one at SNR=1
-                sample=self.__trainGenerator.getDataSet(self.__tabSNR[i],weight=self.__weight,size=500)
+                sample=self.__trainGenerator.getDataSet(self.__tabSNR[i],weight=self.__weight,size=0)
                 data=np.array(sample[0].reshape(self.__trainGenerator.Nsample,-1,1),dtype=np.float32)
                 weight_sharing=np.array(sample[1],dtype=np.float32)
                             
