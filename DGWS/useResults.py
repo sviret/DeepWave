@@ -109,7 +109,7 @@ class Results:
         
         sample=self.__testGenerator.getDataSet(self.__SNRtest,weight=self.__weight)
         data=np.array(sample[0].reshape(self.__NsampleTest,1,-1),dtype=np.float32)
-        labels=np.array(self.__testGenerator.Labels,dtype=np.int32)
+        labels=np.array(sample[3],dtype=np.int32)
         weight_sharing=np.array(sample[1],dtype=np.float32)
         self.__testSet=(data,labels,weight_sharing)
                 
