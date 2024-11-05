@@ -400,7 +400,8 @@ class GenDataSet:
         fdset = []
         fpureset = []
         finaldset=[]
-        
+        labels=[]
+
         if weight=='auto':
             list_weights=self.__listSNRchunksAuto
         if weight=='balance':
@@ -428,19 +429,21 @@ class GenDataSet:
         ntemp=size   # Can choose the size (can be handy to test quickly new architectures)
         if ntemp==0:
             ntemp=int(self.Nsample/2)
-    
+        
         for i in range(ntemp):
             tempset=[] # Signal
             for j in range(nbands):
                 sect=npy.asarray(dset[j][i])
                 tempset.append(sect)
             sec=npy.concatenate(tempset)
+            labels.append(self.__Labels[i])
             finaldset.append(sec)
             tempset=[] # Noise
             for j in range(nbands):
                 sect=npy.asarray(dset[j][self.Nsample-1-i])
                 tempset.append(sect)
             sec=npy.concatenate(tempset)
+            labels.append(self.__Labels[self.Nsample-1-i])
             finaldset.append(sec)
         fdset=npy.asarray(finaldset)
 
@@ -459,8 +462,8 @@ class GenDataSet:
             sec=npy.concatenate(tempset)
             finaldset.append(sec)
         fpureset=npy.asarray(finaldset)
-          
-        return fdset, list_weights, fpureset
+
+        return fdset, list_weights, fpureset, labels
 
     def getFrame(self,weight='auto',det=0):
         nbands=self.__nTtot

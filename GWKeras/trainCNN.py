@@ -92,6 +92,7 @@ class Multiple_CNN():
             for i in range(self.nb_inputs):
                 input=layers.Input(shape=(int(self.list_chunks[i]),1))
                 x=layers.BatchNormalization()(input)
+                #x=input
                 '''
                 x=layers.Conv1D(filters=4, kernel_size=8, kernel_initializer=initializer)(x)
                 x=layers.MaxPool1D(pool_size=4)(x)
@@ -112,6 +113,18 @@ class Multiple_CNN():
                 x=layers.MaxPool1D(pool_size=4)(x)
                 x=layers.Activation(activation='relu')(x)
                 x=layers.Conv1D(filters=64, kernel_size=8, kernel_initializer=initializer)(x)
+                '''
+                x=layers.Conv1D(filters=10, kernel_size=8, kernel_initializer=initializer)(x)
+                x=layers.MaxPool1D(pool_size=4)(x)
+                x=layers.Activation(activation='relu')(x)
+                x=layers.Conv1D(filters=12, kernel_size=2, kernel_initializer=initializer)(x)
+                x=layers.MaxPool1D(pool_size=4)(x)
+                x=layers.Activation(activation='relu')(x)
+                x=layers.Conv1D(filters=8, kernel_size=2, kernel_initializer=initializer)(x)
+                x=layers.MaxPool1D(pool_size=4)(x)
+                x=layers.Activation(activation='relu')(x)
+                x=layers.Conv1D(filters=8, kernel_size=8, kernel_initializer=initializer)(x)
+                '''
                 '''
                 x=layers.Conv1D(filters=16, kernel_size=8, kernel_initializer=initializer)(x)
                 x=layers.MaxPool1D(pool_size=4)(x)
@@ -311,19 +324,22 @@ class MyTrainer():
         
         # First we pick data in the training sample and adapt it to the required starting SNR
         self.__trainGenerator=TrainGenerator
-        sample=self.__trainGenerator.getDataSet(self.__tabSNR[0],weight=self.__weight,size=0)
+        sample=self.__trainGenerator.getDataSet(self.__tabSNR[0],weight=self.__weight)
         # Training data at the initial SNR
-        data=np.array(sample[0].reshape(self.__trainGenerator.Nsample,-1,1),dtype=np.float32)
+        #data=np.array(sample[0].reshape(self.__trainGenerator.Nsample,-1,1),dtype=np.float32)
+        data=np.array(sample[0].reshape(len(sample[0]),-1,1),dtype=np.float32)
         # Expected outputs
-        labels=np.array(self.__trainGenerator.Labels,dtype=np.int32)
+        #labels=np.array(self.__trainGenerator.Labels,dtype=np.int32)
+        labels=np.array(sample[3],dtype=np.int32)
         # Sharing among frequency bands
         weight_sharing=np.array(sample[1],dtype=np.float32)
 
         # The test dataset will always be the same, pick it up once
         self.__testGenerator=TestGenerator
-        sample_t=self.__testGenerator.getDataSet(SNRtest,weight=self.__weight,size=0)
-        data_t=np.array(sample_t[0].reshape(self.__testGenerator.Nsample,-1,1),dtype=np.float32)
-        labels_t=np.array(self.__testGenerator.Labels,dtype=np.int32)
+        sample_t=self.__testGenerator.getDataSet(SNRtest,weight=self.__weight)
+        data_t=np.array(sample_t[0].reshape(len(sample_t[0]),-1,1),dtype=np.float32)
+        labels_t=np.array(sample_t[3],dtype=np.int32)
+        #labels_t=np.array(self.__testGenerator.Labels,dtype=np.int32)
         weight_sharing_t=np.array(sample_t[1],dtype=np.float32)
         
         if verbose:
@@ -364,10 +380,11 @@ class MyTrainer():
 
                 # Create a dataset with the corresponding SNR
                 # Starting from the initial one at SNR=1
-                sample=self.__trainGenerator.getDataSet(self.__tabSNR[i],weight=self.__weight,size=0)
+                sample=self.__trainGenerator.getDataSet(self.__tabSNR[i],weight=self.__weight)
                 data=np.array(sample[0].reshape(self.__trainGenerator.Nsample,-1,1),dtype=np.float32)
                 weight_sharing=np.array(sample[1],dtype=np.float32)
-                            
+                labels=np.array(sample[3],dtype=np.int32)
+                
                 cut_top = 0
                 cut_bottom = 0
                 list_inputs=[]
@@ -490,7 +507,7 @@ def parse_cmd_line():
     parser = argparse.ArgumentParser()
     parser.add_argument("TrainGenerator", help="Fichier pickle contenant le générateur du DataSet d'entraînement")
     parser.add_argument("TestGenerator", help="Fichier pickle contenant le générateur du DataSet de test")
-    parser.add_argument("--SNRtest","-St",help="SNR de test pour la courbe ROC",type=float,default=7.5)
+    parser.add_argument("--SNRtest","-St",help="SNR de test pour la courbe ROC",type=float,default=10.)
     parser.add_argument("--paramfile","-pf",help="Fichier csv des paramètres d'entraînement",default=None)
     parser.add_argument("--verbose","-v",help="Affiche l'évolution de l'entraînement",action="store_true")
     parser.add_argument("--number","-nb",help="Nombre d'entrainements",type=int,default=1)
