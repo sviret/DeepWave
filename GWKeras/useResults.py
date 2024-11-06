@@ -32,13 +32,13 @@ def accuracy(yhat,N,seuil=0.5):
 
 def sensitivity(yhat,N,seuil=0.5):
     #superieur au seuil
-    return ((yhat[:N//2].T[1].astype(np.float32)>=seuil)*np.ones(N//2)).mean()
+    return ((yhat[::2].T[1].astype(np.float32)>=seuil)*np.ones(N//2)).mean()
 
 def FAR(yhat,N,seuil=0.5):
-    return 1-((yhat[-N//2:].T[0].astype(np.float32)<seuil)*np.ones(N//2)).mean()
+    return 1-((yhat[1::2].T[0].astype(np.float32)<seuil)*np.ones(N//2)).mean()
 
 def Threshold(yhat,N,FAR=0.005):
-    l=np.sort(yhat[-N//2:].T[1]) # Proba d'être signal assignée au bruit
+    l=np.sort(yhat[1::2].T[1]) # Proba d'être signal assignée au bruit
     ind=len(l)-int(np.floor(FAR*(N//2)))
     if ind==0:
         print('Sample is too small to define a threshold with FAP',FAR)
@@ -152,7 +152,7 @@ class Results:
             rsnr=0.5*snr
             sample=self.__cTrainer.testGenerator.getDataSet(rsnr,weight=self.__weight)
             data=np.array(sample[0].reshape(self.__NsampleTest,-1,1),dtype=np.float32)
-            labels=np.array(self.__cTrainer.testGenerator.Labels,dtype=np.int32)
+            labels=np.array(sample[3],dtype=np.int32)
             weight_sharing=np.array(sample[1],dtype=np.float32)
             TestSet=(data,labels,weight_sharing)
             
@@ -276,8 +276,8 @@ class Printer:
             
     def plotDistrib(self,result,epoch,FAR=0.005):
         self.__nbDist+=1
-        distsig=result.testOut[epoch][:result.NsampleTest//2].T[1].numpy()
-        distnoise=result.testOut[epoch][-result.NsampleTest//2:].T[1].numpy()
+        distsig=result.testOut[epoch][::2].T[1].numpy()
+        distnoise=result.testOut[epoch][1::2].T[1].numpy()
         seuil=result.Threshold(epoch,FAR)[1] # Threshold for FAP on test sample
         #print(epoch,seuil)
         plt.figure('Distribution_epoch'+str(epoch)+'-'+str(self.__nbDist))
@@ -294,7 +294,7 @@ class Printer:
             
     def plotMapDistrib(self,result,epoch,granularity=1):
         self.__nbMapDist+=1
-        distsig=result.testOut[epoch][:result.NsampleTest//2].T[1].numpy()
+        distsig=result.testOut[epoch][::2].T[1].numpy()
         mlow=int(np.floor(result.mInt[0]))
         mhigh=int(np.ceil(result.mInt[1]))
         mstep=result.mStep

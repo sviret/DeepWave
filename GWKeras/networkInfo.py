@@ -58,7 +58,8 @@ def main():
     f.write("\n")    
 
     for layer in layers:
-        
+      
+
         data=model.get_layer(layer.name).get_weights()
         f.write(f"-> Layer {compt}\n")
         f.write(f"Name: {layer.name}\n")
@@ -68,8 +69,8 @@ def main():
         if compt==1: # Just input vector as first entry 
             continue
 
-        f.write(f"Input size {layer.input_shape}\n")
-        f.write(f"Output size {layer.output_shape}\n")
+        f.write(f"Input size {layer.input.shape}\n")
+        f.write(f"Output size {layer.output.shape}\n")
         f.write(f"Parameters:\n")
 
         if len(data)==0:
@@ -81,7 +82,7 @@ def main():
 
             if 'conv1d' in layer.name and len(wght.shape)==3:
                 
-                mult=layer.output_shape[1]*wght.shape[0]*wght.shape[1]*wght.shape[2]
+                mult=layer.output.shape[1]*wght.shape[0]*wght.shape[1]*wght.shape[2]
                 add=mult
                 #print(layer.name,mult)
                 n_mult+=mult
@@ -89,11 +90,22 @@ def main():
 
             if 'batch_norm' in layer.name:
                 #https://keras.io/api/layers/normalization_layers/batch_normalization/
-                mult=layer.output_shape[1]*2
-                add=layer.output_shape[1]*3
+                
+                # Batch normalization operation 
+                # x_norm = gamma*(x - mean)/sqrt(var) + beta
+                # gamma = wght[0]
+                # beta  = wght[1]
+                # mean  = wght[2]
+                # var   = wght[3]
+
+                # In inference mode mean and var are fixed 
+                # So 4 params
+                # And 1 mult and 2 addition per sample
+                mult=layer.input.shape[1]
+                add=layer.input.shape[1]*2
                 #print(layer.name,mult)
-                n_mult+=mult/4
-                n_add+=add/4
+                n_mult+=mult
+                n_add+=add
 
             if 'dense' in layer.name and len(wght.shape)==2:
        
